@@ -2,21 +2,26 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from app.config import get_settings
 from app.hardware import SimulatedHardware
 from app.models import (
+    CameraStatus,
     ChatRequest,
     ChatResponse,
     DriveCommand,
     MemoryCreate,
     MemoryRecord,
     RobotStatus,
+    SimulationSensors,
+    SpatialStatus,
     VoiceStatus,
 )
-from app.robot import RobotController
+from app.perception.camera import CameraService
+from app.perception.spatial import SpatialAwareness
+from app.robot import RobotController, UnsafeDriveError
 from app.services.conversation import ConversationService
 from app.services.llm import LocalLLM
 from app.services.memory import MemoryStore
@@ -26,7 +31,36 @@ from app.services.voice import OfflineVoiceAssistant
 settings = get_settings()
 memory = MemoryStore(settings.database_path)
 llm = LocalLLM(settings.ollama_url, settings.ollama_model, settings.name)
-conversation = ConversationService(memory, llm)
+
+if settings.mode.lower() == "esp32":
+    from app.hardware.esp32_serial import ESP32SerialHardware
+
+    hardware = ESP32SerialHardware(settings.name, settings.serial_port, settings.serial_baud)
+else:
+    hardware = SimulatedHardware(settings.name)
+
+camera = CameraService(
+    auto_start=settings.enable_camera,
+    device=settings.camera_device,
+    width=settings.camera_width,
+    height=settings.camera_height,
+    fps=settings.camera_fps,
+    jpeg_quality=settings.camera_jpeg_quality,
+    motion_threshold=settings.camera_motion_threshold,
+)
+awareness = SpatialAwareness(
+    hardware,
+    stop_cm=settings.obstacle_stop_cm,
+    warn_cm=settings.obstacle_warn_cm,
+    require_proximity_for_forward=settings.require_proximity_for_forward,
+)
+
+
+def live_robot_context() -> str:
+    return awareness.context_text(camera.status())
+
+
+conversation = ConversationService(memory, llm, context_provider=live_robot_context)
 speaker = LocalSpeaker(settings.enable_local_tts, settings.tts_command)
 voice = OfflineVoiceAssistant(
     conversation,
@@ -40,26 +74,22 @@ voice = OfflineVoiceAssistant(
     block_size=settings.voice_block_size,
     command_timeout_seconds=settings.voice_command_timeout_seconds,
 )
-
-if settings.mode.lower() == "esp32":
-    from app.hardware.esp32_serial import ESP32SerialHardware
-
-    hardware = ESP32SerialHardware(settings.name, settings.serial_port, settings.serial_baud)
-else:
-    hardware = SimulatedHardware(settings.name)
-robot = RobotController(hardware, settings.max_motor_percent)
+robot = RobotController(hardware, settings.max_motor_percent, awareness=awareness)
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    if settings.enable_camera:
+        camera.start()
     if settings.enable_voice_loop:
         voice.start()
     yield
+    camera.stop()
     voice.stop()
     hardware.close()
 
 
-app = FastAPI(title="Ribitics Robot", version="0.2.0", lifespan=lifespan)
+app = FastAPI(title="Ribitics Robot", version="0.3.0", lifespan=lifespan)
 static_dir = Path(__file__).resolve().parent.parent / "static"
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
@@ -86,6 +116,8 @@ def health() -> dict:
         "name": settings.name,
         "mode": settings.mode,
         "voice": voice.status().model_dump(),
+        "camera": camera.status().model_dump(),
+        "spatial": awareness.status().model_dump(),
     }
 
 
@@ -94,9 +126,17 @@ def status() -> RobotStatus:
     return hardware.status()
 
 
+@app.get("/api/spatial/status", response_model=SpatialStatus)
+def spatial_status() -> SpatialStatus:
+    return awareness.status()
+
+
 @app.post("/api/drive", dependencies=[Depends(require_control_token)])
 def drive(command: DriveCommand) -> RobotStatus:
-    robot.drive(command.linear, command.angular)
+    try:
+        robot.drive(command.linear, command.angular)
+    except UnsafeDriveError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     return hardware.status()
 
 
@@ -104,6 +144,18 @@ def drive(command: DriveCommand) -> RobotStatus:
 def stop() -> RobotStatus:
     robot.stop()
     return hardware.status()
+
+
+@app.post(
+    "/api/simulation/sensors",
+    response_model=SpatialStatus,
+    dependencies=[Depends(require_control_token)],
+)
+def simulation_sensors(sensors: SimulationSensors) -> SpatialStatus:
+    if not isinstance(hardware, SimulatedHardware):
+        raise HTTPException(status_code=409, detail="Sensor simulation is only available in simulation mode")
+    hardware.set_sensors(sensors)
+    return awareness.status()
 
 
 @app.post("/api/chat", response_model=ChatResponse)
@@ -134,6 +186,41 @@ def voice_start() -> VoiceStatus:
 )
 def voice_stop() -> VoiceStatus:
     return voice.stop()
+
+
+@app.get("/api/camera/status", response_model=CameraStatus)
+def camera_status() -> CameraStatus:
+    return camera.status()
+
+
+@app.post(
+    "/api/camera/start",
+    response_model=CameraStatus,
+    dependencies=[Depends(require_control_token)],
+)
+def camera_start() -> CameraStatus:
+    return camera.start()
+
+
+@app.post(
+    "/api/camera/stop",
+    response_model=CameraStatus,
+    dependencies=[Depends(require_control_token)],
+)
+def camera_stop() -> CameraStatus:
+    return camera.stop()
+
+
+@app.get("/api/camera/snapshot", dependencies=[Depends(require_control_token)])
+def camera_snapshot() -> Response:
+    frame = camera.snapshot()
+    if frame is None:
+        raise HTTPException(status_code=503, detail="Camera has no frame available")
+    return Response(
+        content=frame,
+        media_type="image/jpeg",
+        headers={"Cache-Control": "no-store, max-age=0"},
+    )
 
 
 @app.get("/api/memories", response_model=list[MemoryRecord])
