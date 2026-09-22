@@ -17,6 +17,12 @@ The goal is **not** to lock the robot to one Raspberry Pi, one AI model, one cam
 - Offline Vosk wake phrase + speech recognition (`Hey Ribitics` by default)
 - Local robot speaker output through `espeak-ng` or another command
 - Dashboard voice state, last-heard text, last reply, errors, and start/stop controls
+- Optional USB camera with live dashboard frames and local motion detection
+- Optional vendor-neutral 2D LiDAR service with a live radar view
+- Fused spatial awareness from front proximity, bumpers, and LiDAR
+- Host-side forward-motion safety gate with configurable stop/warning distances
+- Matching optional ESP32 front bumper / ultrasonic safety gate
+- Simulation controls for testing clear, warning, blocked, and bumper states without hardware
 - Responsive phone/tablet robot dashboard
 - Manual differential-drive controls
 - Simulation mode so development can start without hardware
@@ -34,20 +40,28 @@ Phone / tablet / robot touchscreen
              |
         Web dashboard
              |
-       FastAPI robot brain
-        /       |       \
- memory     local AI    integrations
- SQLite      Ollama     your software
-             |
-       robot controller
-             |
-    USB serial JSON protocol
-             |
-          ESP32-S3
-             |
-       Cytron MDD10A
-        /          \
- left motors    right motors
+                 FastAPI robot brain
+          /            |             \
+      memory         local AI      integrations
+      SQLite          Ollama       your software
+          \             |             /
+             live robot context
+             /              \
+       camera/OpenCV      spatial awareness
+                         /       |       \
+                   proximity  bumpers   2D LiDAR
+                         \       |       /
+                           safety gate
+                               |
+                       robot controller
+                               |
+                      USB serial protocol
+                               |
+                            ESP32-S3
+                               |
+                         Cytron MDD10A
+                         /           \
+                    left motors   right motors
 ```
 
 The ESP32 owns time-critical motor/sensor behavior. The main computer owns conversation, memory, UI, vision, and software integrations.
@@ -114,6 +128,65 @@ You can speak the wake phrase and command together — “Hey Ribitics what do y
 
 If the wrong microphone is selected, set `RIBITICS_MICROPHONE_DEVICE` to a sounddevice device number or device name. The dashboard exposes the microphone/model state and any startup error instead of failing silently.
 
+## Turn on camera vision
+
+Camera support stays optional so the rest of the robot can run without OpenCV:
+
+~~~bash
+pip install -e ".[vision]"
+~~~
+
+Then configure:
+
+~~~env
+RIBITICS_ENABLE_CAMERA=true
+RIBITICS_CAMERA_DEVICE=0
+RIBITICS_CAMERA_WIDTH=640
+RIBITICS_CAMERA_HEIGHT=480
+RIBITICS_CAMERA_FPS=12
+~~~
+
+The dashboard shows the latest local camera frame, motion state, resolution, frame rate, and camera errors. Motion detection is local and lightweight. Ribitics does **not** claim to recognize objects unless a separate object-recognition model is added later.
+
+## Turn on 2D LiDAR
+
+The LiDAR service uses the vendor-neutral `lds2d` driver layer. Install it with:
+
+~~~bash
+pip install -e ".[lidar]"
+~~~
+
+The default configuration is ready for an RPLIDAR A1:
+
+~~~env
+RIBITICS_ENABLE_LIDAR=true
+RIBITICS_LIDAR_MODEL=RPLIDAR-A1
+RIBITICS_LIDAR_PORT=/dev/ttyUSB0
+RIBITICS_LIDAR_FORWARD_ANGLE_DEG=0
+RIBITICS_LIDAR_FRONT_ARC_DEG=35
+RIBITICS_LIDAR_MAX_DISTANCE_MM=6000
+~~~
+
+Other supported model names include `RPLIDAR-C1`, `YDLIDAR-X4`, and `LDROBOT-LD14P`. The dashboard renders a live 2D radar view. The nearest valid LiDAR point inside the configured forward arc participates in the same forward-motion safety gate as the bumpers and front proximity sensor.
+
+To install voice + vision + LiDAR together:
+
+~~~bash
+pip install -e ".[robot]"
+~~~
+
+## Test spatial safety without hardware
+
+Simulation mode can inject sensor states through the dashboard. The built-in shortcuts include:
+
+- clear path at 150 cm
+- warning zone at 55 cm
+- blocking obstacle at 20 cm
+- pressed front bumper
+- no proximity sensor
+
+With the default 35 cm stop threshold, a 20 cm simulated obstacle returns HTTP 409 for a forward drive request, stops the motors, and still allows reverse so the robot can be recovered.
+
 ## Teach it
 
 Say or type:
@@ -161,8 +234,9 @@ Software is **not** the emergency stop.
 - Begin with low motor limits; the default software limit is 65%.
 - Keep manual control within line of sight.
 - Confirm motor polarity and encoder direction before floor testing.
-- Never rely on Wi-Fi, the browser, voice recognition, FastAPI, or the ESP32 alone to stop a dangerous machine.
-- Voice currently handles conversation, not unsupervised driving. Keep movement behind explicit controls until collision sensing and navigation safety are installed and verified.
+- Never rely on Wi-Fi, the browser, voice recognition, camera vision, LiDAR, FastAPI, or the ESP32 alone to stop a dangerous machine.
+- The proximity/LiDAR gate is supplemental software safety, not a certified collision-avoidance system.
+- Voice currently handles conversation, not unsupervised driving. Autonomous navigation remains disabled until wheel odometry, mapping, localization, braking distance, and collision behavior are physically validated.
 
 ## External software integrations
 
@@ -192,12 +266,15 @@ Examples we can add next:
 - wheel encoders fully calibrated
 - bumper sensors
 - ultrasonic / ToF sensors
+- USB camera
 - bigger speaker / mic array
 - tablet or touchscreen body
 
 ### V2
-- 2D LiDAR
-- ROS 2 navigation adapter
+- 2D LiDAR (software adapter and dashboard are now ready)
+- wheel odometry calibration
+- local occupancy map / localization
+- ROS 2 navigation adapter if needed
 - optional heavier Whisper/faster-whisper speech-to-text upgrade
 - camera object detection
 - automatic charging dock
@@ -226,4 +303,4 @@ Movement and voice start/stop endpoints require the token when the default value
 
 ## Project status
 
-Ribitics now has a usable standalone software foundation: simulation, persistent memory, local AI, robot-side voice, dashboard controls, and the ESP32 motor bridge are separate layers so future hardware upgrades do not require rebuilding the whole robot.
+Ribitics now has a local standalone perception-and-control foundation: simulation, persistent memory, local AI, robot-side voice, USB camera, 2D LiDAR, fused obstacle awareness, dashboard controls, and the ESP32 motor bridge are separate layers. The next safe autonomy stage is calibrated wheel odometry + mapping/localization; autonomous driving is intentionally not enabled yet.
