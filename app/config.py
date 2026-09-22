@@ -77,6 +77,17 @@ class Settings(BaseSettings):
     localization_confidence_decay_distance_cm: float = 250.0
     localization_confidence_decay_seconds: float = 20.0
 
+    enable_place_recognition: bool = True
+    place_anchor_path: str = "data/ribitics-places.json"
+    place_descriptor_sectors: int = 36
+    place_descriptor_max_range_cm: float = 600.0
+    place_min_valid_sectors: int = 10
+    place_min_similarity: float = 0.72
+    place_min_margin: float = 0.04
+    place_max_anchors: int = 100
+    place_verify_search_xy_cm: float = 100.0
+    place_verify_search_heading_deg: float = 35.0
+
     enable_supervised_navigation: bool = False
     navigation_allow_unknown: bool = False
     navigation_max_goal_distance_cm: float = 500.0
@@ -87,13 +98,20 @@ class Settings(BaseSettings):
     navigation_timeout_seconds: float = 120.0
 
     dock_approach_distance_cm: float = 60.0
+    dock_persistence_path: str = "data/ribitics-dock.json"
+    dock_auto_load: bool = False
 
     max_motor_percent: int = 65
     control_token: str = "change-me-before-network-use"
 
     def ensure_data_dir(self) -> None:
-        Path(self.database_path).parent.mkdir(parents=True, exist_ok=True)
-        Path(self.map_persistence_path).parent.mkdir(parents=True, exist_ok=True)
+        for path in (
+            self.database_path,
+            self.map_persistence_path,
+            self.place_anchor_path,
+            self.dock_persistence_path,
+        ):
+            Path(path).parent.mkdir(parents=True, exist_ok=True)
 
 
 @lru_cache
