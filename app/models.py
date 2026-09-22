@@ -44,3 +44,16 @@ class RobotStatus(BaseModel):
     left_ticks: int | None = None
     right_ticks: int | None = None
     last_message: str = ""
+
+
+class VoiceStatus(BaseModel):
+    auto_start: bool
+    running: bool
+    ready: bool
+    state: str = "stopped"
+    engine: str = "vosk"
+    wake_phrase: str = "hey ribitics"
+    model_path: str = ""
+    last_heard: str = ""
+    last_reply: str = ""
+    last_error: str = ""
