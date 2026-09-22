@@ -356,23 +356,44 @@ class PlaceRecognizer:
     ) -> tuple[float, int]:
         if len(anchor) != self.sectors or len(live) != self.sectors:
             return 0.0, 0
+
+        live_valid = sum(1 for value in live if value >= 0)
+        anchor_valid = sum(1 for value in anchor if value >= 0)
+        expected_overlap = max(
+            self.min_valid_sectors,
+            min(live_valid, anchor_valid),
+        )
+
         best_similarity = 0.0
         best_shift = 0
         for shift in range(self.sectors):
             compared = 0
             error = 0.0
             for index, live_value in enumerate(live):
-                anchor_value = anchor[(index + shift) % self.sectors]
-                if live_value < 0 or anchor_value < 0:
+                if live_value < 0:
                     continue
+                target = (index + shift) % self.sectors
+
+                # A small x/y translation can move the same reflector/wall endpoint across
+                # a sector boundary. Compare the expected sector and its immediate neighbors.
+                candidates = [
+                    anchor[(target + offset) % self.sectors]
+                    for offset in (-1, 0, 1)
+                ]
+                candidates = [value for value in candidates if value >= 0]
+                if not candidates:
+                    continue
+
                 compared += 1
-                error += abs(live_value - anchor_value)
+                error += min(abs(live_value - value) for value in candidates)
+
             if compared < self.min_valid_sectors:
                 similarity = 0.0
             else:
                 mean_error = error / compared
-                coverage = min(1.0, compared / max(self.min_valid_sectors, self.sectors * 0.55))
+                coverage = min(1.0, compared / expected_overlap)
                 similarity = max(0.0, 1.0 - mean_error) * coverage
+
             signed_shift = shift if shift <= self.sectors // 2 else shift - self.sectors
             if similarity > best_similarity:
                 best_similarity = similarity
