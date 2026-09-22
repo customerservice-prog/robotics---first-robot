@@ -35,6 +35,8 @@ constexpr float FIRMWARE_STOP_DISTANCE_CM = 35.0f;
 
 constexpr int PWM_FREQ = 18000;
 constexpr int PWM_BITS = 8;
+constexpr int LEFT_PWM_CHANNEL = 0;
+constexpr int RIGHT_PWM_CHANNEL = 1;
 constexpr uint32_t COMMAND_TIMEOUT_MS = 750;
 constexpr uint32_t TELEMETRY_INTERVAL_MS = 250;
 constexpr uint32_t PROXIMITY_INTERVAL_MS = 80;
@@ -124,18 +126,18 @@ bool commandMovesForward(int left, int right) {
   return ((left + right) / 2.0f) > 0.0f;
 }
 
-void setMotor(int percent, int pwmPin, int dirPin) {
+void setMotor(int percent, int pwmChannel, int dirPin) {
   percent = constrain(percent, -100, 100);
   digitalWrite(dirPin, percent >= 0 ? HIGH : LOW);
   int duty = map(abs(percent), 0, 100, 0, 255);
-  ledcWrite(pwmPin, duty);
+  ledcWrite(pwmChannel, duty);
 }
 
 void stopMotors() {
   currentLeft = 0;
   currentRight = 0;
-  ledcWrite(LEFT_PWM_PIN, 0);
-  ledcWrite(RIGHT_PWM_PIN, 0);
+  ledcWrite(LEFT_PWM_CHANNEL, 0);
+  ledcWrite(RIGHT_PWM_CHANNEL, 0);
 }
 
 void applyDrive(int left, int right) {
@@ -151,8 +153,8 @@ void applyDrive(int left, int right) {
 
   currentLeft = requestedLeft;
   currentRight = requestedRight;
-  setMotor(currentLeft, LEFT_PWM_PIN, LEFT_DIR_PIN);
-  setMotor(currentRight, RIGHT_PWM_PIN, RIGHT_DIR_PIN);
+  setMotor(currentLeft, LEFT_PWM_CHANNEL, LEFT_DIR_PIN);
+  setMotor(currentRight, RIGHT_PWM_CHANNEL, RIGHT_DIR_PIN);
 }
 
 void sendTelemetry() {
@@ -196,8 +198,10 @@ void setup() {
     pinMode(FRONT_ULTRASONIC_ECHO_PIN, INPUT);
   }
 
-  ledcAttach(LEFT_PWM_PIN, PWM_FREQ, PWM_BITS);
-  ledcAttach(RIGHT_PWM_PIN, PWM_FREQ, PWM_BITS);
+  ledcSetup(LEFT_PWM_CHANNEL, PWM_FREQ, PWM_BITS);
+  ledcSetup(RIGHT_PWM_CHANNEL, PWM_FREQ, PWM_BITS);
+  ledcAttachPin(LEFT_PWM_PIN, LEFT_PWM_CHANNEL);
+  ledcAttachPin(RIGHT_PWM_PIN, RIGHT_PWM_CHANNEL);
   attachInterrupt(digitalPinToInterrupt(LEFT_ENC_A_PIN), onLeftEncoder, RISING);
   attachInterrupt(digitalPinToInterrupt(RIGHT_ENC_A_PIN), onRightEncoder, RISING);
   stopMotors();
