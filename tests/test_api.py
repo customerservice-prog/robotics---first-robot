@@ -11,6 +11,7 @@ def test_health_and_status():
         assert health['camera']['running'] is False
         assert health['lidar']['running'] is False
         assert 'localization' in health
+        assert 'places' in health
         assert 'spatial' in health
         assert 'odometry' in health
         assert 'map' in health
@@ -184,3 +185,25 @@ def test_localization_and_map_mode_endpoints():
         resumed = client.post('/api/map/learning', json={'enabled': True})
         assert resumed.status_code == 200
         assert resumed.json()['learning_enabled'] is True
+
+
+
+def test_map_identity_and_place_status_endpoints():
+    with TestClient(app) as client:
+        map_status = client.get('/api/map/status')
+        assert map_status.status_code == 200
+        assert map_status.json()['map_id']
+        assert 'revision' in map_status.json()
+
+        places = client.get('/api/places/status')
+        assert places.status_code == 200
+        assert 'anchor_count' in places.json()
+        assert places.json()['map_id'] == map_status.json()['map_id']
+
+        listing = client.get('/api/places')
+        assert listing.status_code == 200
+        assert isinstance(listing.json(), list)
+
+        dock = client.get('/api/dock/status')
+        assert dock.status_code == 200
+        assert 'valid_for_current_map' in dock.json()
