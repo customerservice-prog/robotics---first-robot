@@ -207,6 +207,7 @@ class MapStatus(BaseModel):
     free_cells: int = 0
     occupied_cells: int = 0
     dirty: bool = False
+    learning_enabled: bool = True
     loaded_from_disk: bool = False
     persistence_path: str = ""
     last_saved_at: datetime | None = None
@@ -221,6 +222,10 @@ class MapSnapshot(BaseModel):
     occupied: list[MapCell] = Field(default_factory=list)
     robot_pose: Pose2D = Field(default_factory=Pose2D)
     captured_at: datetime | None = None
+
+
+class MapLearningRequest(BaseModel):
+    enabled: bool
 
 
 class MapPersistenceResult(BaseModel):
