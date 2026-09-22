@@ -1,5 +1,5 @@
 from app.hardware.base import RobotHardware
-from app.models import RobotStatus
+from app.models import RobotStatus, SimulationSensors
 
 
 class SimulatedHardware(RobotHardware):
@@ -9,6 +9,7 @@ class SimulatedHardware(RobotHardware):
         self.right = 0
         self._estop = False
         self.message = "Simulation ready"
+        self._sensors = SimulationSensors()
 
     def drive(self, left: int, right: int) -> None:
         if self._estop:
@@ -23,6 +24,10 @@ class SimulatedHardware(RobotHardware):
         self.left = self.right = 0
         self.message = "Stopped"
 
+    def set_sensors(self, sensors: SimulationSensors) -> None:
+        self._sensors = sensors
+        self.message = "Simulation spatial sensors updated"
+
     def status(self) -> RobotStatus:
         return RobotStatus(
             name=self.name,
@@ -35,5 +40,12 @@ class SimulatedHardware(RobotHardware):
             battery_voltage=12.8,
             left_ticks=0,
             right_ticks=0,
+            front_distance_cm=self._sensors.front_distance_cm,
+            left_distance_cm=self._sensors.left_distance_cm,
+            right_distance_cm=self._sensors.right_distance_cm,
+            front_bumper_left=self._sensors.front_bumper_left,
+            front_bumper_right=self._sensors.front_bumper_right,
+            lidar_connected=self._sensors.lidar_connected,
+            lidar_min_distance_cm=self._sensors.lidar_min_distance_cm,
             last_message=self.message,
         )
