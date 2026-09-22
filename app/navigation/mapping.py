@@ -4,12 +4,14 @@ import json
 import math
 import threading
 import time
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
 from app.models import (
     LidarScan,
     MapCell,
+    MapIdentity,
     MapPersistenceResult,
     MapSnapshot,
     MapStatus,
@@ -60,6 +62,8 @@ class LocalOccupancyMap:
         self._last_loaded_at: datetime | None = None
         self._loaded_from_disk = False
         self._learning_enabled = True
+        self._map_id = str(uuid.uuid4())
+        self._revision = 0
         self._dirty = False
         self._last_error = ""
 
@@ -91,6 +95,8 @@ class LocalOccupancyMap:
             self._last_update_at = datetime.now(timezone.utc)
             self._loaded_from_disk = False
             self._learning_enabled = True
+            self._map_id = str(uuid.uuid4())
+            self._revision = 0
             self._dirty = True
             self._last_error = ""
         return self.status()
@@ -100,12 +106,15 @@ class LocalOccupancyMap:
         target.parent.mkdir(parents=True, exist_ok=True)
         with self._lock:
             entries = [[x, y, score] for (x, y), score in self._scores.items() if score != 0]
+            next_revision = self._revision + 1 if self._dirty else self._revision
             payload = {
                 "format": self.FORMAT_NAME,
                 "version": self.FORMAT_VERSION,
                 "resolution_cm": self.resolution_cm,
                 "size_cm": self.size_cm,
                 "robot_radius_cm": self.robot_radius_cm,
+                "map_id": self._map_id,
+                "revision": next_revision,
                 "updates": self._updates,
                 "scores": entries,
                 "saved_at": datetime.now(timezone.utc).isoformat(),
@@ -118,6 +127,7 @@ class LocalOccupancyMap:
             saved_at = datetime.now(timezone.utc)
             with self._lock:
                 self._last_saved_at = saved_at
+                self._revision = next_revision
                 self._dirty = False
                 self._last_error = ""
             return MapPersistenceResult(
@@ -125,6 +135,8 @@ class LocalOccupancyMap:
                 action="save",
                 path=str(target),
                 cell_count=len(entries),
+                map_id=self._map_id,
+                revision=next_revision,
                 reason="Sparse occupancy map saved atomically",
             )
         except (OSError, ValueError) as exc:
@@ -165,6 +177,8 @@ class LocalOccupancyMap:
                 if self.in_bounds(cell) and -5 <= score <= 5 and score != 0:
                     loaded_scores[cell] = score
             loaded_at = datetime.now(timezone.utc)
+            loaded_map_id = str(payload.get("map_id") or uuid.uuid4())
+            loaded_revision = int(payload.get("revision", 0))
             with self._lock:
                 self._scores = loaded_scores
                 self._updates = int(payload.get("updates", 0))
@@ -173,6 +187,8 @@ class LocalOccupancyMap:
                 self._last_loaded_at = loaded_at
                 self._loaded_from_disk = True
                 self._learning_enabled = False
+                self._map_id = loaded_map_id
+                self._revision = loaded_revision
                 self._dirty = False
                 self._last_error = ""
             return MapPersistenceResult(
@@ -180,6 +196,8 @@ class LocalOccupancyMap:
                 action="load",
                 path=str(target),
                 cell_count=len(loaded_scores),
+                map_id=loaded_map_id,
+                revision=loaded_revision,
                 reason=(
                     "Persistent map loaded. Navigation must remain locked until live "
                     "localization confirms the robot pose."
@@ -276,6 +294,8 @@ class LocalOccupancyMap:
                 ready=self._updates > 0 and (free > 0 or occupied > 0),
                 resolution_cm=self.resolution_cm,
                 size_cm=self.size_cm,
+                map_id=self._map_id,
+                revision=self._revision,
                 updates=self._updates,
                 free_cells=free,
                 occupied_cells=occupied,
@@ -299,6 +319,8 @@ class LocalOccupancyMap:
         return MapSnapshot(
             resolution_cm=self.resolution_cm,
             size_cm=self.size_cm,
+            map_id=self._map_id,
+            revision=self._revision,
             occupied=[
                 MapCell(x_cm=self.cell_to_world(cell)[0], y_cm=self.cell_to_world(cell)[1])
                 for cell in occupied_cells
@@ -306,6 +328,10 @@ class LocalOccupancyMap:
             robot_pose=pose,
             captured_at=captured_at,
         )
+
+    def identity(self) -> MapIdentity:
+        with self._lock:
+            return MapIdentity(map_id=self._map_id, revision=self._revision)
 
     def grid_copy(self) -> dict[tuple[int, int], int]:
         with self._lock:
