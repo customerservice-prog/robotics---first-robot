@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Ribitics Robot</title>
+  <style>
+    :root { color-scheme: dark; --bg:#080b12; --panel:#111827; --line:#25314a; --accent:#5da8ff; --good:#52d273; --danger:#ff5a68; --text:#f5f7fb; --muted:#94a3b8; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:Inter,system-ui,Arial,sans-serif; background:radial-gradient(circle at top,#14213b 0,#080b12 42%); color:var(--text); min-height:100vh; }
+    .shell { max-width:1180px; margin:auto; padding:24px; }
+    header { display:flex; justify-content:space-between; gap:20px; align-items:center; margin-bottom:20px; }
+    h1 { margin:0; font-size:clamp(28px,5vw,50px); letter-spacing:-.04em; }
+    .sub { color:var(--muted); margin-top:4px; }
+    .pill { border:1px solid var(--line); background:#0d1421; padding:10px 14px; border-radius:999px; font-size:14px; }
+    .grid { display:grid; grid-template-columns:1.1fr .9fr; gap:18px; }
+    .card { background:rgba(17,24,39,.92); border:1px solid var(--line); border-radius:22px; padding:20px; box-shadow:0 20px 60px #0006; }
+    .card h2 { margin:0 0 14px; font-size:19px; }
+    .status { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
+    .metric { background:#0c1320; border:1px solid #1e2a40; border-radius:16px; padding:13px; }
+    .metric span { display:block; color:var(--muted); font-size:12px; }
+    .metric strong { display:block; margin-top:6px; font-size:18px; }
+    .drive { display:grid; grid-template-columns:80px 80px 80px; grid-template-rows:70px 70px 70px; gap:10px; justify-content:center; margin:18px auto; }
+    button { border:1px solid #334155; background:#172033; color:white; border-radius:16px; font-weight:700; cursor:pointer; font-size:15px; }
+    button:hover { border-color:#5da8ff; }
+    .up { grid-column:2; } .left { grid-column:1;grid-row:2; } .stop { grid-column:2;grid-row:2;background:#5d1f2a;border-color:#8c3040; } .right { grid-column:3;grid-row:2; } .down { grid-column:2;grid-row:3; }
+    .chatlog { height:360px; overflow:auto; background:#0a101b; border:1px solid #1f2a40; border-radius:16px; padding:14px; }
+    .msg { max-width:88%; padding:10px 12px; border-radius:14px; margin:8px 0; line-height:1.35; white-space:pre-wrap; }
+    .me { background:#17345c; margin-left:auto; }
+    .bot { background:#1a2231; }
+    .composer { display:flex; gap:8px; margin-top:10px; }
+    input { flex:1; background:#090f19; border:1px solid #2d3a52; color:white; border-radius:14px; padding:13px 14px; font-size:15px; }
+    .send { padding:0 18px; background:#2468b9; }
+    .mic { width:48px; font-size:20px; }
+    .memory-list { max-height:230px; overflow:auto; }
+    .memory { border-bottom:1px solid #223047; padding:10px 0; color:#dbe4f2; }
+    .memory small { color:var(--muted); display:block; margin-top:4px; }
+    .hint { color:var(--muted); font-size:13px; line-height:1.5; }
+    .danger { color:#ff8b95; }
+    @media (max-width:850px){ .grid{grid-template-columns:1fr}.status{grid-template-columns:repeat(2,1fr)} header{align-items:flex-start;flex-direction:column}.shell{padding:14px} }
+  </style>
+</head>
+<body>
+<div class="shell">
+  <header>
+    <div><h1>Ribitics Robot</h1><div class="sub">Local-first robot brain · memory · voice · hardware bridge</div></div>
+    <div id="connection" class="pill">Connecting…</div>
+  </header>
+  <div class="grid">
+    <section class="card">
+      <h2>Robot control</h2>
+      <div class="status">
+        <div class="metric"><span>Mode</span><strong id="mode">—</strong></div>
+        <div class="metric"><span>Battery</span><strong id="battery">—</strong></div>
+        <div class="metric"><span>Left motor</span><strong id="leftMotor">0%</strong></div>
+        <div class="metric"><span>Right motor</span><strong id="rightMotor">0%</strong></div>
+      </div>
+      <div class="drive">
+        <button class="up" data-linear="1" data-angular="0">▲</button>
+        <button class="left" data-linear="0" data-angular="-1">◀</button>
+        <button class="stop" id="stop">STOP</button>
+        <button class="right" data-linear="0" data-angular="1">▶</button>
+        <button class="down" data-linear="-1" data-angular="0">▼</button>
+      </div>
+      <p id="hardwareMessage" class="hint">Waiting for hardware status…</p>
+      <p class="hint danger">Manual movement should only be used while you can see the robot. A physical emergency-stop must cut motor power independently of this software.</p>
+    </section>
+
+    <section class="card">
+      <h2>Talk to Ribitics</h2>
+      <div id="chatlog" class="chatlog"><div class="msg bot">I'm online. Say “remember that …” to teach me something.</div></div>
+      <div class="composer">
+        <button id="mic" class="mic" title="Use browser microphone">🎙</button>
+        <input id="message" placeholder="Talk to Ribitics…" autocomplete="off" />
+        <button id="send" class="send">Send</button>
+      </div>
+      <p class="hint">Voice input/output uses your browser today. Later the same backend can use the robot's USB microphone and speaker directly.</p>
+    </section>
+
+    <section class="card">
+      <h2>Persistent memory</h2>
+      <div id="memories" class="memory-list"></div>
+    </section>
+
+    <section class="card">
+      <h2>Upgrade path</h2>
+      <p class="hint">Today: simulation or ESP32 + Cytron motor control. Next: wheel encoders, ultrasonic/bumper sensors, LiDAR, camera vision, local Whisper speech recognition, charging dock, then a Jetson if you need heavier AI.</p>
+      <p class="hint">The AI model, camera, motors, body and computer are intentionally replaceable. Memory and software integrations stay yours.</p>
+    </section>
+  </div>
+</div>
+<script>
+const qs = s => document.querySelector(s);
+const token = localStorage.getItem('ribiticsToken') || '';
+function headers(){ return token ? {'Content-Type':'application/json','X-Ribitics-Token':token} : {'Content-Type':'application/json'}; }
+function addMessage(text, who='bot') { const d=document.createElement('div'); d.className='msg '+who; d.textContent=text; qs('#chatlog').appendChild(d); qs('#chatlog').scrollTop=qs('#chatlog').scrollHeight; }
+function speak(text){ if('speechSynthesis' in window){ speechSynthesis.cancel(); speechSynthesis.speak(new SpeechSynthesisUtterance(text)); } }
+async function status(){ try{ const r=await fetch('/api/status'); const s=await r.json(); qs('#connection').textContent=s.connected?'● Connected':'● Disconnected'; qs('#connection').style.color=s.connected?'#52d273':'#ff5a68'; qs('#mode').textContent=s.mode; qs('#battery').textContent=s.battery_voltage?`${s.battery_voltage.toFixed(1)}V`:'—'; qs('#leftMotor').textContent=`${s.left_motor}%`; qs('#rightMotor').textContent=`${s.right_motor}%`; qs('#hardwareMessage').textContent=s.last_message+(s.estop?' · PHYSICAL E-STOP ACTIVE':''); }catch(e){ qs('#connection').textContent='Offline'; } }
+async function drive(linear,angular){ await fetch('/api/drive',{method:'POST',headers:headers(),body:JSON.stringify({linear,angular})}); status(); }
+async function stop(){ await fetch('/api/stop',{method:'POST',headers:headers()}); status(); }
+document.querySelectorAll('[data-linear]').forEach(b=>{ const start=e=>{e.preventDefault(); drive(Number(b.dataset.linear),Number(b.dataset.angular));}; b.addEventListener('pointerdown',start); b.addEventListener('pointerup',stop); b.addEventListener('pointerleave',stop); b.addEventListener('pointercancel',stop); });
+qs('#stop').onclick=stop;
+async function send(){ const input=qs('#message'); const message=input.value.trim(); if(!message)return; input.value=''; addMessage(message,'me'); try{ const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message})}); const data=await r.json(); addMessage(data.reply,'bot'); speak(data.reply); loadMemories(); }catch(e){ addMessage('I could not reach the robot brain.','bot'); } }
+qs('#send').onclick=send; qs('#message').addEventListener('keydown',e=>{if(e.key==='Enter')send();});
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+if(SpeechRecognition){ const rec=new SpeechRecognition(); rec.lang='en-US'; rec.interimResults=false; rec.onresult=e=>{qs('#message').value=e.results[0][0].transcript; send();}; qs('#mic').onclick=()=>rec.start(); } else { qs('#mic').onclick=()=>addMessage('This browser does not expose speech recognition. You can still type.','bot'); }
+async function loadMemories(){ try{ const r=await fetch('/api/memories?limit=20'); const ms=await r.json(); qs('#memories').innerHTML=ms.length?ms.map(m=>`<div class="memory">${escapeHtml(m.content)}<small>importance ${m.importance} · ${m.tags.join(', ')||'untagged'}</small></div>`).join(''):'<div class="hint">No memories saved yet.</div>'; }catch(e){} }
+function escapeHtml(s){ return s.replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
+setInterval(status,1000); status(); loadMemories();
+</script>
+</body>
+</html>
