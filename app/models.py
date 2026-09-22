@@ -208,6 +208,15 @@ class NavigationStatus(BaseModel):
     started_at: datetime | None = None
     last_update_at: datetime | None = None
     last_error: str = ""
+    recovery_available: bool = False
+
+
+class DockStatus(BaseModel):
+    configured: bool
+    dock_pose: Pose2D | None = None
+    approach_goal: NavigationGoal | None = None
+    distance_to_dock_cm: float | None = None
+    reason: str = ""
 
 
 class SimulationSensors(BaseModel):
