@@ -15,6 +15,7 @@
     .chatlog{height:300px;overflow:auto;background:#09111d;border:1px solid #1a263a;border-radius:16px;padding:13px}.msg{max-width:88%;padding:10px 12px;border-radius:14px;margin:8px 0;line-height:1.4;white-space:pre-wrap;font-size:14px}.me{background:#153c67;margin-left:auto}.bot{background:#182337}.composer{display:flex;gap:8px;margin-top:10px}input{min-width:0;flex:1;background:#08101b;border:1px solid #2b3a55;color:white;border-radius:13px;padding:12px 13px;outline:none}input:focus{border-color:var(--accent)}.send,.primary{padding:0 16px;background:linear-gradient(135deg,#1b67b8,#5369e5);border-color:#4b78bf}.mic{width:46px;font-size:18px}
     .voice-panel,.vision-panel{display:grid;gap:11px}.hero-row{display:flex;align-items:center;justify-content:space-between;gap:14px;background:linear-gradient(135deg,rgba(37,91,155,.24),rgba(82,82,180,.12));border:1px solid #2b4264;border-radius:17px;padding:14px}.orb{width:47px;height:47px;border-radius:50%;flex:0 0 auto;background:radial-gradient(circle at 35% 30%,#b8e3ff 0 8%,#4ba9ff 20%,#3754d2 58%,#17233d 70%);box-shadow:0 0 0 7px rgba(89,151,255,.08),0 0 36px rgba(80,152,255,.32)}.hero-copy{flex:1;min-width:0}.hero-copy strong{display:block;font-size:16px}.hero-copy span{color:var(--muted);font-size:12px}.small-btn{padding:9px 12px;font-size:12px}.data-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}.data-box{background:#0a121f;border:1px solid #1a263a;border-radius:14px;padding:11px;min-height:72px}.data-box span{color:var(--muted);font-size:11px;display:block;margin-bottom:5px}.data-box div{font-size:13px;line-height:1.35;overflow-wrap:anywhere}.error-box{display:none;border:1px solid #6f3040;background:#331722;color:#ffabb4;padding:10px;border-radius:12px;font-size:12px}
     .camera-wrap{position:relative;aspect-ratio:16/9;border-radius:17px;overflow:hidden;background:#050a12;border:1px solid #22324a;display:grid;place-items:center}.camera-wrap img{width:100%;height:100%;object-fit:cover;display:none}.camera-placeholder{color:#63748d;text-align:center;font-size:13px;padding:20px}.motion-chip{position:absolute;left:12px;bottom:12px;background:rgba(5,10,18,.78);border:1px solid #32435d;border-radius:999px;padding:7px 10px;font-size:11px;backdrop-filter:blur(8px)}
+    .lidar-wrap{position:relative;aspect-ratio:16/9;border-radius:17px;overflow:hidden;background:#050a12;border:1px solid #22324a}.lidar-wrap canvas{width:100%;height:100%;display:block}.lidar-chip{position:absolute;left:12px;bottom:12px;background:rgba(5,10,18,.78);border:1px solid #32435d;border-radius:999px;padding:7px 10px;font-size:11px;backdrop-filter:blur(8px)}
     .spatial-hero{display:grid;grid-template-columns:1.2fr .8fr;gap:10px}.path-box{background:#0a121f;border:1px solid #21304a;border-radius:17px;padding:15px}.path-box strong{font-size:20px;display:block;margin:4px 0}.distance-big{font-size:34px;font-weight:900;letter-spacing:-.04em}.sim-row{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}.sim-row button{padding:8px 10px;font-size:11px}
     .memory-list{max-height:230px;overflow:auto}.memory{border-bottom:1px solid #20304a;padding:10px 2px;color:#dce6f5;font-size:13px}.memory small{color:var(--muted);display:block;margin-top:4px}.footer-note{text-align:center;color:#6f8099;font-size:11px;margin:16px 0 2px}
     @media(max-width:940px){.grid{grid-template-columns:1fr}.full{grid-column:auto}.status-grid{grid-template-columns:repeat(2,1fr)}header{flex-direction:column}.shell{padding:14px}}@media(max-width:540px){.data-grid,.spatial-hero{grid-template-columns:1fr}.composer{display:grid;grid-template-columns:46px 1fr}.send{grid-column:1/-1;height:44px}}
@@ -24,7 +25,7 @@
 <div class="shell">
   <header>
     <div class="brand"><div class="logo">R</div><div><h1>Ribitics</h1><div class="sub">Local robot brain · voice · vision · spatial safety · memory</div></div></div>
-    <div class="top-actions"><div id="connection" class="pill">Robot: connecting…</div><div id="pathPill" class="pill">Path: checking…</div><div id="cameraPill" class="pill">Camera: checking…</div><div id="voicePill" class="pill">Voice: checking…</div></div>
+    <div class="top-actions"><div id="connection" class="pill">Robot: connecting…</div><div id="pathPill" class="pill">Path: checking…</div><div id="cameraPill" class="pill">Camera: checking…</div><div id="lidarPill" class="pill">LiDAR: checking…</div><div id="voicePill" class="pill">Voice: checking…</div></div>
   </header>
   <div class="grid">
     <section class="card">
@@ -72,6 +73,21 @@
     </section>
 
     <section class="card">
+      <div class="card-head"><div><div class="eyebrow">2D LiDAR</div><h2>Live laser scan</h2></div><button id="lidarToggle" class="small-btn primary">Start LiDAR</button></div>
+      <div class="vision-panel">
+        <div class="lidar-wrap"><canvas id="lidarCanvas" width="640" height="360"></canvas><div id="lidarChip" class="lidar-chip">No scan yet</div></div>
+        <div class="data-grid">
+          <div class="data-box"><span>LiDAR state</span><div id="lidarState">Stopped</div></div>
+          <div class="data-box"><span>Model / port</span><div id="lidarDevice">—</div></div>
+          <div class="data-box"><span>Scan rate / points</span><div id="lidarStats">—</div></div>
+          <div class="data-box"><span>Forward arc nearest</span><div id="lidarFront">—</div></div>
+        </div>
+        <div id="lidarError" class="error-box"></div>
+        <p class="hint">The scan is centered on the robot: straight ahead is up. LiDAR points inside the forward arc feed the same obstacle gate used by the bumpers and front proximity sensor.</p>
+      </div>
+    </section>
+
+    <section class="card">
       <div class="card-head"><div><div class="eyebrow">Conversation</div><h2>Talk to Ribitics</h2></div></div>
       <div id="chatlog" class="chatlog"><div class="msg bot">I'm online. Ask “is the path clear?” and I’ll answer from live sensor state instead of guessing.</div></div>
       <div class="composer"><button id="mic" class="mic">🎙</button><input id="message" placeholder="Ask Ribitics anything…" autocomplete="off" /><button id="send" class="send">Send</button></div>
@@ -95,8 +111,8 @@
 
     <section class="card full">
       <div class="card-head"><div><div class="eyebrow">System</div><h2>Ribitics v0.3 stack</h2></div></div>
-      <div class="status-grid"><div class="metric"><span>Wake phrase / STT</span><strong>Vosk</strong></div><div class="metric"><span>AI brain</span><strong>Ollama</strong></div><div class="metric"><span>Vision</span><strong>OpenCV</strong></div><div class="metric"><span>Safety</span><strong>Host + ESP32</strong></div></div>
-      <p class="hint">Autonomous navigation remains disabled. Camera and proximity data are now available for the next LiDAR / mapping stage, but movement is still manual and supervised.</p>
+      <div class="status-grid"><div class="metric"><span>Wake phrase / STT</span><strong>Vosk</strong></div><div class="metric"><span>AI brain</span><strong>Ollama</strong></div><div class="metric"><span>Vision</span><strong>OpenCV</strong></div><div class="metric"><span>Space sensing</span><strong>2D LiDAR + proximity</strong></div></div>
+      <p class="hint">Autonomous navigation remains disabled. Camera, bumpers, proximity and 2D LiDAR now provide the perception/safety foundation for a later mapping and odometry stage.</p>
     </section>
   </div>
   <div class="footer-note">Ribitics Robot v0.3 · camera/proximity safety supplements, but never replaces, the physical emergency stop</div>
@@ -106,6 +122,7 @@ const qs=function(s){return document.querySelector(s)};
 const token=localStorage.getItem('ribiticsToken')||'';
 let cameraReady=false;
 let cameraObjectUrl='';
+let lidarReady=false;
 function authHeaders(){return token?{'Content-Type':'application/json','X-Ribitics-Token':token}:{'Content-Type':'application/json'}}
 function authGetHeaders(){return token?{'X-Ribitics-Token':token}:{}}
 function fmtDistance(v){return v===null||v===undefined?'—':Number(v).toFixed(1)+' cm'}
@@ -128,6 +145,13 @@ qs('#cameraToggle').onclick=async function(){var running=qs('#cameraToggle').dat
 
 async function refreshCameraFrame(){if(!cameraReady)return;try{var r=await fetch('/api/camera/snapshot',{headers:authGetHeaders(),cache:'no-store'});if(!r.ok)return;var blob=await r.blob();var url=URL.createObjectURL(blob);qs('#cameraFrame').src=url;qs('#cameraFrame').style.display='block';qs('#cameraPlaceholder').style.display='none';if(cameraObjectUrl)URL.revokeObjectURL(cameraObjectUrl);cameraObjectUrl=url}catch(e){}}
 
+async function lidarStatus(){try{var r=await fetch('/api/lidar/status');var l=await r.json();lidarReady=l.ready;qs('#lidarToggle').textContent=l.running?'Stop LiDAR':'Start LiDAR';qs('#lidarToggle').dataset.running=l.running?'1':'0';qs('#lidarState').textContent=l.state;qs('#lidarDevice').textContent=l.model+' · '+l.port;qs('#lidarStats').textContent=l.ready?(Number(l.scan_hz).toFixed(1)+' Hz · '+l.scan_points+' points'):'—';qs('#lidarFront').textContent=fmtDistance(l.front_min_distance_cm);qs('#lidarChip').textContent=l.ready?'● Live 360° scan':'No live scan';qs('#lidarChip').style.color=l.ready?'#4ed47a':'#93a3bb';qs('#lidarPill').textContent=l.ready?'● LiDAR live':l.state==='error'?'● LiDAR error':l.running?'● LiDAR starting':'● LiDAR stopped';qs('#lidarPill').style.color=l.ready?'#4ed47a':l.state==='error'?'#ff6677':'#ffc857';if(l.last_error){qs('#lidarError').style.display='block';qs('#lidarError').textContent=l.last_error}else{qs('#lidarError').style.display='none';qs('#lidarError').textContent=''}if(!l.ready)drawLidar([])}catch(e){qs('#lidarPill').textContent='● LiDAR unavailable';qs('#lidarPill').style.color='#ff6677'}}
+qs('#lidarToggle').onclick=async function(){var running=qs('#lidarToggle').dataset.running==='1';qs('#lidarToggle').disabled=true;try{await fetch(running?'/api/lidar/stop':'/api/lidar/start',{method:'POST',headers:authHeaders()})}finally{qs('#lidarToggle').disabled=false;setTimeout(lidarStatus,250)}};
+
+function drawLidar(points){var canvas=qs('#lidarCanvas');var ctx=canvas.getContext('2d');var w=canvas.width,h=canvas.height;ctx.clearRect(0,0,w,h);ctx.fillStyle='#050a12';ctx.fillRect(0,0,w,h);var cx=w/2,cy=h*.82,maxRange=600,maxRadius=Math.min(w*.44,h*.72);ctx.strokeStyle='#1d2b42';ctx.lineWidth=1;[.25,.5,.75,1].forEach(function(scale){ctx.beginPath();ctx.arc(cx,cy,maxRadius*scale,Math.PI,2*Math.PI);ctx.stroke()});ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx,cy-maxRadius);ctx.stroke();ctx.fillStyle='#65b5ff';(points||[]).forEach(function(p){var d=Math.min(maxRange,Number(p.distance_cm));if(!isFinite(d)||d<=0)return;var a=Number(p.angle_deg)*Math.PI/180;var radius=(d/maxRange)*maxRadius;var x=cx-Math.sin(a)*radius;var y=cy-Math.cos(a)*radius;ctx.fillRect(x-1,y-1,3,3)});ctx.fillStyle='#4ed47a';ctx.beginPath();ctx.arc(cx,cy,5,0,Math.PI*2);ctx.fill();ctx.fillStyle='#63748d';ctx.font='11px system-ui';ctx.fillText('front',cx-13,cy-maxRadius-8);ctx.fillText('6 m display',12,20)}
+async function refreshLidarScan(){if(!lidarReady)return;try{var r=await fetch('/api/lidar/scan',{headers:authGetHeaders(),cache:'no-store'});if(!r.ok)return;var scan=await r.json();drawLidar(scan.points||[])}catch(e){}}
+drawLidar([]);
+
 async function send(){var input=qs('#message');var message=input.value.trim();if(!message)return;input.value='';addMessage(message,'me');try{var r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:message})});if(!r.ok)throw new Error('chat failed');var data=await r.json();addMessage(data.reply,'bot');speakBrowser(data.reply);loadMemories()}catch(e){addMessage('I could not reach the robot brain.','bot')}}
 qs('#send').onclick=send;qs('#message').addEventListener('keydown',function(e){if(e.key==='Enter')send()});
 var SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
@@ -140,8 +164,8 @@ qs('#voiceToggle').onclick=async function(){var running=qs('#voiceToggle').datas
 function escapeHtml(s){return String(s).replace(/[&<>'"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]})}
 async function loadMemories(){try{var r=await fetch('/api/memories?limit=20');var ms=await r.json();if(!ms.length){qs('#memories').innerHTML='<div class="hint">No memories saved yet.</div>';return}qs('#memories').innerHTML=ms.map(function(m){return '<div class="memory">'+escapeHtml(m.content)+'<small>importance '+m.importance+' · '+(m.tags.map(escapeHtml).join(', ')||'untagged')+'</small></div>'}).join('')}catch(e){}}
 
-setInterval(robotStatus,1000);setInterval(spatialStatus,650);setInterval(cameraStatus,1200);setInterval(refreshCameraFrame,800);setInterval(voiceStatus,1200);
-robotStatus();spatialStatus();cameraStatus();voiceStatus();loadMemories();
+setInterval(robotStatus,1000);setInterval(spatialStatus,650);setInterval(cameraStatus,1200);setInterval(refreshCameraFrame,800);setInterval(lidarStatus,1200);setInterval(refreshLidarScan,700);setInterval(voiceStatus,1200);
+robotStatus();spatialStatus();cameraStatus();lidarStatus();voiceStatus();loadMemories();
 </script>
 </body>
 </html>
