@@ -1,0 +1,1 @@
+"""Ribitics Robot application package."""
