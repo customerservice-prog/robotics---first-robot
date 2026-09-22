@@ -1,6 +1,6 @@
 # Ribitics Robot
 
-Current software release: **v0.5 — persistent reference maps + confidence-gated LiDAR localization**
+Current software release: **v0.6 — map identity + verified LiDAR place recognition + persistent dock memory**
 
 Ribitics is a local-first, upgradeable physical robot stack. The software is split into replaceable layers so the robot can keep its memory, identity, dashboard, integrations, and behavior while the computer, sensors, drivetrain, or AI model change.
 
@@ -23,6 +23,10 @@ Ribitics is a local-first, upgradeable physical robot stack. The software is spl
 - Atomic sparse-map save/load for persistent reference maps
 - Frozen-reference map mode so localization does not learn from its own drift
 - Confidence-gated correlative LiDAR scan matching
+- Persistent map UUID + revision tracking
+- Rotation-aware persistent LiDAR place anchors
+- Place recognition used only as a pose proposal; geometric scan matching must verify it
+- Persistent charging-dock approach pose bound to the owning map ID
 - A* route planning with robot-radius obstacle inflation
 - Low-speed supervised waypoint following
 - Manual driving and STOP always cancel an active route
@@ -55,7 +59,10 @@ Ribitics is a local-first, upgradeable physical robot stack. The software is spl
               persistent map   scan matcher
                        \          /
                     corrected pose
-                            |
+                       /          \
+               place memory     map identity
+                 + verify       UUID/revision
+                       \          /
                     A* route planner
                             |
                  supervised navigator
@@ -310,6 +317,90 @@ Use **Resume mapping** only when you intentionally want to change the occupancy 
 
 Resuming map learning invalidates the current localization lock. Freeze the map and obtain a new confident match before relying on it for physical navigation again.
 
+## v0.6 map identity and verified place recognition
+
+v0.6 improves cross-restart location recovery without pretending to be full global SLAM.
+
+### Map identity and revisions
+
+Every new/cleared occupancy map receives a UUID. Successful saves carry that UUID and a monotonically increasing revision number.
+
+- clearing a map creates a new map ID
+- loading a saved map restores its original map ID and revision
+- place anchors and dock coordinates are tied to the map ID
+- a dock/place from another map ID is rejected rather than silently reused
+- normal revisions of the same map keep the same UUID
+
+The dashboard shows the short map ID and revision next to the local map state.
+
+### Persistent place anchors
+
+A place anchor stores:
+
+- the current verified map pose
+- the current map UUID/revision
+- a compact 360° LiDAR descriptor split into angular sectors
+- a human-readable name
+- a creation timestamp
+
+Default place-memory file:
+
+~~~env
+RIBITICS_PLACE_ANCHOR_PATH=data/ribitics-places.json
+~~~
+
+Recognition is rotation-aware. Ribitics compares the live descriptor against saved anchors while allowing circular sector shifts to estimate approximate heading.
+
+Important: **descriptor recognition never directly changes pose.**
+
+The trust chain is:
+
+1. recognize a candidate place from the LiDAR signature
+2. estimate a coarse pose/heading from the saved anchor
+3. stop the robot
+4. use the v0.5 geometric occupancy-map scan matcher around that hint
+5. only if geometric verification succeeds may odometry be corrected
+
+That means a visually/sensor-similar aisle cannot move the robot's coordinate frame based on the descriptor alone.
+
+Default thresholds:
+
+~~~env
+RIBITICS_PLACE_DESCRIPTOR_SECTORS=36
+RIBITICS_PLACE_DESCRIPTOR_MAX_RANGE_CM=600
+RIBITICS_PLACE_MIN_VALID_SECTORS=10
+RIBITICS_PLACE_MIN_SIMILARITY=0.72
+RIBITICS_PLACE_MIN_MARGIN=0.04
+RIBITICS_PLACE_VERIFY_SEARCH_XY_CM=100
+RIBITICS_PLACE_VERIFY_SEARCH_HEADING_DEG=35
+~~~
+
+### Safe place-anchor workflow
+
+1. Load or build the correct map.
+2. Freeze the reference map.
+3. Obtain a confident v0.5 localization match.
+4. Stop at a distinctive place.
+5. Enter a place name and choose **Save current place**.
+6. Repeat at several geometrically distinctive places.
+7. After a restart, load the matching map and saved places.
+8. Use **Recognize place + verify**.
+9. Check localization confidence before planning supervised motion.
+
+Capturing physical place anchors is rejected unless the robot already has a confident localized pose. Simulation is exempt for development testing.
+
+### Persistent dock pose
+
+v0.6 persists the dock approach pose to:
+
+~~~env
+RIBITICS_DOCK_PERSISTENCE_PATH=data/ribitics-dock.json
+~~~
+
+The dock file includes the owning map UUID. Loading it under another map ID is blocked.
+
+The dock still represents an **approach pose only**. v0.6 does not automate final charging contact, centering, connector insertion, or charging verification.
+
 ## A* route planning
 
 The dashboard can plan a local x/y destination against the occupancy grid.
@@ -377,7 +468,7 @@ If spatial safety blocks a route:
 
 ## Charging-dock foundation
 
-The dashboard can mark the robot's current local pose as the dock for the current session.
+The dashboard can mark the robot's current localized pose as the dock. In v0.6 the dock approach pose can persist across restarts, but only for the same map UUID.
 
 Ribitics computes an approach point behind the dock heading:
 
@@ -389,7 +480,7 @@ You can plan and supervise a return to that approach point through the normal na
 
 v0.4 does not automatically make charging contact. Final alignment still requires dedicated close-range hardware such as fiducials, IR/beacon sensing, contact switches, or another verified method.
 
-The dock pose is deliberately not persisted as a global coordinate yet because encoder dead reckoning does not provide a reliable cross-reboot global reference.
+The dock pose is now persisted against the map identity. It becomes usable after the matching map is loaded and the robot is relocalized. A mismatched map ID blocks dock use.
 
 ## Connect the physical ESP32
 
@@ -423,7 +514,7 @@ Software is not the emergency stop.
 - Fuse motor and computer power branches appropriately.
 - Verify the E-stop before every physical navigation test.
 - First powered motor tests should be done with wheels lifted.
-- Keep the robot within line of sight during all v0.4 navigation tests.
+- Keep the robot within line of sight during all v0.6 navigation/localization tests.
 - Keep people, pets, stairs, roads, loading docks, traffic, and fragile objects outside the test area.
 - Start with an open, flat, controlled test area and very low speed.
 - Never treat LiDAR, camera vision, odometry, FastAPI, Wi-Fi, or the ESP32 as a certified safety system.
@@ -440,7 +531,7 @@ python -m compileall -q app
 
 GitHub Actions extracts the dashboard JavaScript and runs node --check so browser syntax regressions fail CI. A separate firmware job installs PlatformIO and compiles the ESP32-S3 motor controller on every push/PR.
 
-Coverage includes memory/API behavior, motor mixing, signed odometry, differential heading math, spatial safety, camera/LiDAR lazy loading, occupancy mapping, sparse-map persistence, scan matching, confidence-gated localization, obstacle inflation, A* detours, supervised navigation, STOP cancellation, stopped recovery replanning, dock approach planning, and dashboard structure.
+Coverage includes memory/API behavior, motor mixing, signed/quadrature-ready odometry, differential heading math, spatial safety, camera/LiDAR lazy loading, occupancy mapping, sparse-map persistence, map UUID/revisions, scan matching, confidence-gated localization, rotation-aware place recognition, map-bound dock persistence, obstacle inflation, A* detours, supervised navigation, STOP cancellation, stopped recovery replanning, dock approach planning, dashboard JavaScript, and ESP32 firmware compilation.
 
 ## Security before LAN use
 
@@ -454,8 +545,8 @@ Movement, navigation, map mutation, camera snapshots, LiDAR scans, and other con
 
 ## Next safe autonomy stage
 
-v0.5 closes part of the localization gap, but it is still bounded local scan matching rather than full global SLAM.
+v0.6 adds map-bound place recognition, but it is still not full loop-closure SLAM and does not make unattended operation safe.
 
-The next stage should focus on stronger place recognition / loop closure, map identity and revision management, dedicated dock fiducial or beacon sensing, charging-contact detection, and physically validated relocalization from larger pose uncertainty.
+The next stage should focus on dedicated dock alignment hardware (fiducial/IR/beacon), charging-contact and charger-state sensing, stronger multi-place/loop-closure consistency checks, map revision migration rules, and long-duration physical drift/relocalization validation.
 
 Only after those are proven on the real chassis should unattended warehouse missions be considered.
