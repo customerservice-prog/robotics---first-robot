@@ -1,17 +1,29 @@
 from __future__ import annotations
 
+import json
 import math
 import threading
 import time
 from datetime import datetime, timezone
+from pathlib import Path
 
-from app.models import LidarScan, MapCell, MapSnapshot, MapStatus, Pose2D
+from app.models import (
+    LidarScan,
+    MapCell,
+    MapPersistenceResult,
+    MapSnapshot,
+    MapStatus,
+    Pose2D,
+)
 from app.navigation.odometry import DifferentialOdometry
 from app.perception.lidar import LidarService
 
 
 class LocalOccupancyMap:
-    """Sparse local occupancy grid built from LiDAR + encoder dead reckoning."""
+    """Sparse local occupancy grid built from LiDAR + corrected local pose."""
+
+    FORMAT_NAME = "ribitics_sparse_occupancy"
+    FORMAT_VERSION = 1
 
     def __init__(
         self,
@@ -22,6 +34,7 @@ class LocalOccupancyMap:
         size_cm: float = 1200.0,
         robot_radius_cm: float = 20.0,
         poll_hz: float = 5.0,
+        persistence_path: str = "data/ribitics-map.json",
     ) -> None:
         self.lidar = lidar
         self.odometry = odometry
@@ -29,6 +42,7 @@ class LocalOccupancyMap:
         self.size_cm = max(self.resolution_cm * 20, float(size_cm))
         self.robot_radius_cm = max(1.0, float(robot_radius_cm))
         self.poll_hz = max(0.5, float(poll_hz))
+        self.persistence_path = Path(persistence_path)
         self.width_cells = max(20, int(round(self.size_cm / self.resolution_cm)))
         if self.width_cells % 2:
             self.width_cells += 1
@@ -42,6 +56,10 @@ class LocalOccupancyMap:
         self._updates = 0
         self._last_scan_at: datetime | None = None
         self._last_update_at: datetime | None = None
+        self._last_saved_at: datetime | None = None
+        self._last_loaded_at: datetime | None = None
+        self._loaded_from_disk = False
+        self._dirty = False
         self._last_error = ""
 
     def start(self) -> MapStatus:
@@ -69,9 +87,110 @@ class LocalOccupancyMap:
             self._scores.clear()
             self._updates = 0
             self._last_scan_at = None
-            self._last_update_at = None
+            self._last_update_at = datetime.now(timezone.utc)
+            self._loaded_from_disk = False
+            self._dirty = True
             self._last_error = ""
         return self.status()
+
+    def save(self, path: str | None = None) -> MapPersistenceResult:
+        target = Path(path) if path else self.persistence_path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        with self._lock:
+            entries = [[x, y, score] for (x, y), score in self._scores.items() if score != 0]
+            payload = {
+                "format": self.FORMAT_NAME,
+                "version": self.FORMAT_VERSION,
+                "resolution_cm": self.resolution_cm,
+                "size_cm": self.size_cm,
+                "robot_radius_cm": self.robot_radius_cm,
+                "updates": self._updates,
+                "scores": entries,
+                "saved_at": datetime.now(timezone.utc).isoformat(),
+            }
+
+        temp = target.with_suffix(target.suffix + ".tmp")
+        try:
+            temp.write_text(json.dumps(payload, separators=(",", ":")), encoding="utf-8")
+            temp.replace(target)
+            saved_at = datetime.now(timezone.utc)
+            with self._lock:
+                self._last_saved_at = saved_at
+                self._dirty = False
+                self._last_error = ""
+            return MapPersistenceResult(
+                success=True,
+                action="save",
+                path=str(target),
+                cell_count=len(entries),
+                reason="Sparse occupancy map saved atomically",
+            )
+        except (OSError, ValueError) as exc:
+            with self._lock:
+                self._last_error = f"Map save failed: {exc}"
+            return MapPersistenceResult(
+                success=False,
+                action="save",
+                path=str(target),
+                cell_count=0,
+                reason=str(exc),
+            )
+        finally:
+            if temp.exists():
+                try:
+                    temp.unlink()
+                except OSError:
+                    pass
+
+    def load(self, path: str | None = None) -> MapPersistenceResult:
+        target = Path(path) if path else self.persistence_path
+        if not target.exists():
+            return MapPersistenceResult(
+                success=False,
+                action="load",
+                path=str(target),
+                reason="Persistent map file does not exist",
+            )
+        try:
+            payload = json.loads(target.read_text(encoding="utf-8"))
+            self._validate_payload(payload)
+            loaded_scores: dict[tuple[int, int], int] = {}
+            for item in payload.get("scores", []):
+                if not isinstance(item, list) or len(item) != 3:
+                    continue
+                x, y, score = int(item[0]), int(item[1]), int(item[2])
+                cell = (x, y)
+                if self.in_bounds(cell) and -5 <= score <= 5 and score != 0:
+                    loaded_scores[cell] = score
+            loaded_at = datetime.now(timezone.utc)
+            with self._lock:
+                self._scores = loaded_scores
+                self._updates = int(payload.get("updates", 0))
+                self._last_scan_at = None
+                self._last_update_at = loaded_at
+                self._last_loaded_at = loaded_at
+                self._loaded_from_disk = True
+                self._dirty = False
+                self._last_error = ""
+            return MapPersistenceResult(
+                success=True,
+                action="load",
+                path=str(target),
+                cell_count=len(loaded_scores),
+                reason=(
+                    "Persistent map loaded. Navigation must remain locked until live "
+                    "localization confirms the robot pose."
+                ),
+            )
+        except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
+            with self._lock:
+                self._last_error = f"Map load failed: {exc}"
+            return MapPersistenceResult(
+                success=False,
+                action="load",
+                path=str(target),
+                reason=str(exc),
+            )
 
     def ingest_scan(self, scan: LidarScan, pose: Pose2D) -> bool:
         if not scan.points:
@@ -113,6 +232,7 @@ class LocalOccupancyMap:
             self._updates += 1
             self._last_scan_at = scan.captured_at
             self._last_update_at = datetime.now(timezone.utc)
+            self._dirty = True
             self._last_error = ""
         return True
 
@@ -134,6 +254,7 @@ class LocalOccupancyMap:
                         self._scores[cell] = 5
             self._updates += 1
             self._last_update_at = datetime.now(timezone.utc)
+            self._dirty = True
             self._last_error = ""
         return self.status()
 
@@ -149,6 +270,11 @@ class LocalOccupancyMap:
                 updates=self._updates,
                 free_cells=free,
                 occupied_cells=occupied,
+                dirty=self._dirty,
+                loaded_from_disk=self._loaded_from_disk,
+                persistence_path=str(self.persistence_path),
+                last_saved_at=self._last_saved_at,
+                last_loaded_at=self._last_loaded_at,
                 last_update_at=self._last_update_at,
                 last_error=self._last_error,
             )
@@ -190,6 +316,23 @@ class LocalOccupancyMap:
 
     def in_bounds(self, cell: tuple[int, int]) -> bool:
         return 0 <= cell[0] < self.width_cells and 0 <= cell[1] < self.width_cells
+
+    def _validate_payload(self, payload: dict) -> None:
+        if payload.get("format") != self.FORMAT_NAME:
+            raise ValueError("Map format is not recognized")
+        if int(payload.get("version", -1)) != self.FORMAT_VERSION:
+            raise ValueError("Map format version is unsupported")
+        stored_resolution = float(payload.get("resolution_cm"))
+        stored_size = float(payload.get("size_cm"))
+        if abs(stored_resolution - self.resolution_cm) > 1e-6:
+            raise ValueError(
+                f"Map resolution {stored_resolution} cm does not match configured "
+                f"{self.resolution_cm} cm"
+            )
+        if abs(stored_size - self.size_cm) > 1e-6:
+            raise ValueError(
+                f"Map size {stored_size} cm does not match configured {self.size_cm} cm"
+            )
 
     @staticmethod
     def _bresenham(
