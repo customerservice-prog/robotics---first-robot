@@ -69,6 +69,8 @@ class Settings(BaseSettings):
     navigation_heading_tolerance_deg: float = 12.0
     navigation_timeout_seconds: float = 120.0
 
+    dock_approach_distance_cm: float = 60.0
+
     max_motor_percent: int = 65
     control_token: str = "change-me-before-network-use"
 
