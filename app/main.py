@@ -7,18 +7,39 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import get_settings
 from app.hardware import SimulatedHardware
-from app.models import ChatRequest, ChatResponse, DriveCommand, MemoryCreate, MemoryRecord, RobotStatus
+from app.models import (
+    ChatRequest,
+    ChatResponse,
+    DriveCommand,
+    MemoryCreate,
+    MemoryRecord,
+    RobotStatus,
+    VoiceStatus,
+)
 from app.robot import RobotController
 from app.services.conversation import ConversationService
 from app.services.llm import LocalLLM
 from app.services.memory import MemoryStore
 from app.services.speech import LocalSpeaker
+from app.services.voice import OfflineVoiceAssistant
 
 settings = get_settings()
 memory = MemoryStore(settings.database_path)
 llm = LocalLLM(settings.ollama_url, settings.ollama_model, settings.name)
 conversation = ConversationService(memory, llm)
 speaker = LocalSpeaker(settings.enable_local_tts, settings.tts_command)
+voice = OfflineVoiceAssistant(
+    conversation,
+    speaker,
+    auto_start=settings.enable_voice_loop,
+    engine=settings.voice_engine,
+    wake_phrase=settings.wake_phrase,
+    model_path=settings.vosk_model_path,
+    microphone_device=settings.microphone_device,
+    sample_rate=settings.voice_sample_rate,
+    block_size=settings.voice_block_size,
+    command_timeout_seconds=settings.voice_command_timeout_seconds,
+)
 
 if settings.mode.lower() == "esp32":
     from app.hardware.esp32_serial import ESP32SerialHardware
@@ -31,11 +52,14 @@ robot = RobotController(hardware, settings.max_motor_percent)
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    if settings.enable_voice_loop:
+        voice.start()
     yield
+    voice.stop()
     hardware.close()
 
 
-app = FastAPI(title="Ribitics Robot", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="Ribitics Robot", version="0.2.0", lifespan=lifespan)
 static_dir = Path(__file__).resolve().parent.parent / "static"
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
@@ -44,7 +68,6 @@ def require_control_token(
     x_ribitics_token: str | None = Header(default=None),
     token: str | None = Query(default=None),
 ) -> None:
-    # Localhost/dev convenience while still making accidental LAN exposure visible.
     expected = settings.control_token
     if expected and expected != "change-me-before-network-use":
         if (x_ribitics_token or token) != expected:
@@ -58,7 +81,12 @@ def dashboard() -> FileResponse:
 
 @app.get("/health")
 def health() -> dict:
-    return {"ok": True, "name": settings.name, "mode": settings.mode}
+    return {
+        "ok": True,
+        "name": settings.name,
+        "mode": settings.mode,
+        "voice": voice.status().model_dump(),
+    }
 
 
 @app.get("/api/status", response_model=RobotStatus)
@@ -83,6 +111,29 @@ async def chat(request: ChatRequest) -> ChatResponse:
     response = await conversation.chat(request.message)
     speaker.speak(response.reply)
     return response
+
+
+@app.get("/api/voice/status", response_model=VoiceStatus)
+def voice_status() -> VoiceStatus:
+    return voice.status()
+
+
+@app.post(
+    "/api/voice/start",
+    response_model=VoiceStatus,
+    dependencies=[Depends(require_control_token)],
+)
+def voice_start() -> VoiceStatus:
+    return voice.start()
+
+
+@app.post(
+    "/api/voice/stop",
+    response_model=VoiceStatus,
+    dependencies=[Depends(require_control_token)],
+)
+def voice_stop() -> VoiceStatus:
+    return voice.stop()
 
 
 @app.get("/api/memories", response_model=list[MemoryRecord])
