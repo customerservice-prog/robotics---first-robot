@@ -33,3 +33,16 @@ jobs:
           Path("/tmp/ribitics-dashboard.js").write_text(scripts[0], encoding="utf-8")
           PY
           node --check /tmp/ribitics-dashboard.js
+
+  firmware:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: python -m pip install --upgrade pip
+      - run: pip install 'platformio>=6,<7'
+      - name: Compile ESP32-S3 motor controller
+        run: pio run -d firmware/esp32_motor_controller
