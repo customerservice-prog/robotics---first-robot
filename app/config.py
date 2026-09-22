@@ -16,6 +16,14 @@ class Settings(BaseSettings):
     ollama_model: str = "qwen2.5:3b"
     enable_local_tts: bool = False
     tts_command: str = "espeak-ng"
+    enable_voice_loop: bool = False
+    voice_engine: str = "vosk"
+    wake_phrase: str = "hey ribitics"
+    vosk_model_path: str = "models/vosk-model-small-en-us-0.15"
+    microphone_device: str | None = None
+    voice_sample_rate: int = 16000
+    voice_block_size: int = 4000
+    voice_command_timeout_seconds: float = 8.0
     max_motor_percent: int = 65
     control_token: str = "change-me-before-network-use"
 
