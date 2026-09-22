@@ -59,6 +59,7 @@ class LocalOccupancyMap:
         self._last_saved_at: datetime | None = None
         self._last_loaded_at: datetime | None = None
         self._loaded_from_disk = False
+        self._learning_enabled = True
         self._dirty = False
         self._last_error = ""
 
@@ -89,6 +90,7 @@ class LocalOccupancyMap:
             self._last_scan_at = None
             self._last_update_at = datetime.now(timezone.utc)
             self._loaded_from_disk = False
+            self._learning_enabled = True
             self._dirty = True
             self._last_error = ""
         return self.status()
@@ -170,6 +172,7 @@ class LocalOccupancyMap:
                 self._last_update_at = loaded_at
                 self._last_loaded_at = loaded_at
                 self._loaded_from_disk = True
+                self._learning_enabled = False
                 self._dirty = False
                 self._last_error = ""
             return MapPersistenceResult(
@@ -191,6 +194,12 @@ class LocalOccupancyMap:
                 path=str(target),
                 reason=str(exc),
             )
+
+    def set_learning(self, enabled: bool) -> MapStatus:
+        with self._lock:
+            self._learning_enabled = bool(enabled)
+            self._last_error = ""
+        return self.status()
 
     def ingest_scan(self, scan: LidarScan, pose: Pose2D) -> bool:
         if not scan.points:
@@ -271,6 +280,7 @@ class LocalOccupancyMap:
                 free_cells=free,
                 occupied_cells=occupied,
                 dirty=self._dirty,
+                learning_enabled=self._learning_enabled,
                 loaded_from_disk=self._loaded_from_disk,
                 persistence_path=str(self.persistence_path),
                 last_saved_at=self._last_saved_at,
@@ -365,6 +375,11 @@ class LocalOccupancyMap:
         while not self._stop_event.is_set():
             started = time.monotonic()
             try:
+                with self._lock:
+                    learning_enabled = self._learning_enabled
+                if not learning_enabled:
+                    self._stop_event.wait(interval)
+                    continue
                 odom = self.odometry.status()
                 scan = self.lidar.scan()
                 if (
