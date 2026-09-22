@@ -11,6 +11,7 @@ from app.models import (
     CameraStatus,
     ChatRequest,
     ChatResponse,
+    DockStatus,
     DriveCommand,
     LidarScan,
     LidarStatus,
@@ -32,6 +33,7 @@ from app.models import (
 from app.navigation import (
     AStarPlanner,
     DifferentialOdometry,
+    DockingFoundation,
     LocalOccupancyMap,
     NavigationError,
     SupervisedNavigator,
@@ -124,6 +126,11 @@ navigator = SupervisedNavigator(
     heading_tolerance_deg=settings.navigation_heading_tolerance_deg,
     timeout_seconds=settings.navigation_timeout_seconds,
 )
+dock = DockingFoundation(
+    odometry,
+    navigator,
+    approach_distance_cm=settings.dock_approach_distance_cm,
+)
 
 
 def live_robot_context() -> str:
@@ -215,6 +222,7 @@ def health() -> dict:
         "odometry": odometry.status().model_dump(),
         "map": occupancy_map.status().model_dump(),
         "navigation": navigator.status().model_dump(),
+        "dock": dock.status().model_dump(),
     }
 
 
@@ -361,6 +369,68 @@ def navigation_start(goal: NavigationGoal) -> NavigationStatus:
 )
 def navigation_cancel() -> NavigationStatus:
     return navigator.cancel("Cancelled by operator")
+
+
+@app.post(
+    "/api/navigation/replan",
+    response_model=NavigationPlan,
+    dependencies=[Depends(require_control_token)],
+)
+def navigation_replan() -> NavigationPlan:
+    try:
+        return navigator.replan_current_goal()
+    except NavigationError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@app.get("/api/dock/status", response_model=DockStatus)
+def dock_status() -> DockStatus:
+    return dock.status()
+
+
+@app.post(
+    "/api/dock/set",
+    response_model=DockStatus,
+    dependencies=[Depends(require_control_token)],
+)
+def dock_set(pose: Pose2D) -> DockStatus:
+    return dock.set_pose(pose)
+
+
+@app.post(
+    "/api/dock/set-current",
+    response_model=DockStatus,
+    dependencies=[Depends(require_control_token)],
+)
+def dock_set_current() -> DockStatus:
+    try:
+        return dock.set_current_pose()
+    except NavigationError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@app.post(
+    "/api/dock/plan-return",
+    response_model=NavigationPlan,
+    dependencies=[Depends(require_control_token)],
+)
+def dock_plan_return() -> NavigationPlan:
+    try:
+        return dock.plan_return()
+    except NavigationError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@app.post(
+    "/api/dock/start-return",
+    response_model=NavigationStatus,
+    dependencies=[Depends(require_control_token)],
+)
+def dock_start_return() -> NavigationStatus:
+    try:
+        return dock.start_return()
+    except NavigationError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
 @app.post("/api/chat", response_model=ChatResponse)
