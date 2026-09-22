@@ -9,6 +9,7 @@ def test_health_and_status():
         assert health['ok'] is True
         assert health['voice']['running'] is False
         assert health['camera']['running'] is False
+        assert health['lidar']['running'] is False
         assert 'spatial' in health
         status = client.get('/api/status').json()
         assert status['connected'] is True
@@ -40,6 +41,16 @@ def test_camera_status_endpoint_does_not_require_camera_package():
         assert status.status_code == 200
         assert status.json()['state'] == 'stopped'
         assert status.json()['ready'] is False
+
+
+def test_lidar_status_and_empty_scan_do_not_require_lidar_package():
+    with TestClient(app) as client:
+        status = client.get('/api/lidar/status')
+        assert status.status_code == 200
+        assert status.json()['state'] == 'stopped'
+        scan = client.get('/api/lidar/scan')
+        assert scan.status_code == 200
+        assert scan.json()['points'] == []
 
 
 def test_simulated_obstacle_blocks_forward_but_allows_reverse():
