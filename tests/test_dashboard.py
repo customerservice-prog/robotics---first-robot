@@ -33,8 +33,21 @@ def test_navigation_dashboard_controls_exist():
         "resetPose",
         "clearMap",
         "odomPill",
+        "locPill",
         "navPill",
         "dockState",
+        "mapReference",
+        "locConfidence",
+        "locCorrection",
+        "saveMap",
+        "loadMap",
+        "freezeMap",
+        "resumeMap",
+        "matchPose",
+        "relocalizeWide",
+        "locHintX",
+        "locHintY",
+        "locHintHeading",
     }
     ids = set(re.findall(r'\bid="([^"]+)"', HTML))
     assert required <= ids
