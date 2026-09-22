@@ -7,11 +7,16 @@ The goal is **not** to lock the robot to one Raspberry Pi, one AI model, one cam
 ## What works now
 
 - FastAPI robot brain and control API
-- Persistent SQLite memory
+- Persistent SQLite long-term memory
+- Persistent recent conversation context across restarts
 - Natural `remember that ...` teaching command
 - Optional **local Ollama** conversation model (no paid cloud API required)
 - Basic offline fallback responder when Ollama is not running
 - Browser microphone input and spoken replies
+- Robot-side always-listening USB microphone loop
+- Offline Vosk wake phrase + speech recognition (`Hey Ribitics` by default)
+- Local robot speaker output through `espeak-ng` or another command
+- Dashboard voice state, last-heard text, last reply, errors, and start/stop controls
 - Responsive phone/tablet robot dashboard
 - Manual differential-drive controls
 - Simulation mode so development can start without hardware
@@ -75,6 +80,40 @@ RIBITICS_OLLAMA_MODEL=qwen2.5:3b
 
 If Ollama is not available, Ribitics automatically uses a small built-in fallback responder; memory and robot control continue to work.
 
+## Turn on fully standalone voice
+
+The standalone voice path is designed for Raspberry Pi-class or used mini-PC hardware and does not require a paid speech API.
+
+On Linux / Raspberry Pi OS:
+
+~~~bash
+sudo apt update
+sudo apt install -y libportaudio2 espeak-ng
+pip install -e ".[voice]"
+python scripts/download-vosk-model.py
+~~~
+
+Then enable the robot microphone and speaker in `.env`:
+
+~~~env
+RIBITICS_ENABLE_VOICE_LOOP=true
+RIBITICS_ENABLE_LOCAL_TTS=true
+RIBITICS_WAKE_PHRASE=hey ribitics
+RIBITICS_VOSK_MODEL_PATH=models/vosk-model-small-en-us-0.15
+~~~
+
+Start it with:
+
+~~~bash
+bash scripts/run-voice.sh
+~~~
+
+On Windows, use `scripts/run-voice.ps1`.
+
+You can speak the wake phrase and command together — “Hey Ribitics what do you remember about the warehouse?” — or pause after “Hey Ribitics” and then give the command.
+
+If the wrong microphone is selected, set `RIBITICS_MICROPHONE_DEVICE` to a sounddevice device number or device name. The dashboard exposes the microphone/model state and any startup error instead of failing silently.
+
 ## Teach it
 
 Say or type:
@@ -83,7 +122,7 @@ Say or type:
 Remember that the white resin chairs are stored in aisle 3.
 ```
 
-The fact is saved to SQLite and is available after reboots.
+The fact is saved to SQLite and is available after reboots. Recent user/assistant turns are also stored locally so follow-up questions can keep context when Ollama is running.
 
 ## Connect the physical ESP32
 
@@ -122,7 +161,8 @@ Software is **not** the emergency stop.
 - Begin with low motor limits; the default software limit is 65%.
 - Keep manual control within line of sight.
 - Confirm motor polarity and encoder direction before floor testing.
-- Never rely on Wi-Fi, the browser, FastAPI, or the ESP32 alone to stop a dangerous machine.
+- Never rely on Wi-Fi, the browser, voice recognition, FastAPI, or the ESP32 alone to stop a dangerous machine.
+- Voice currently handles conversation, not unsupervised driving. Keep movement behind explicit controls until collision sensing and navigation safety are installed and verified.
 
 ## External software integrations
 
@@ -158,7 +198,7 @@ Examples we can add next:
 ### V2
 - 2D LiDAR
 - ROS 2 navigation adapter
-- local speech-to-text (Whisper/faster-whisper)
+- optional heavier Whisper/faster-whisper speech-to-text upgrade
 - camera object detection
 - automatic charging dock
 
@@ -182,8 +222,8 @@ Set a real control token in `.env`:
 RIBITICS_CONTROL_TOKEN=a-long-random-secret
 ```
 
-Movement endpoints require the token when the default value is changed. The dashboard currently reads a token from browser `localStorage` under `ribiticsToken`; a setup screen can be added next.
+Movement and voice start/stop endpoints require the token when the default value is changed. The dashboard reads a token from browser `localStorage` under `ribiticsToken`.
 
 ## Project status
 
-This is the first usable foundation. It intentionally avoids hard-coding a specific chassis or AI vendor so the robot can evolve instead of being rebuilt from scratch.
+Ribitics now has a usable standalone software foundation: simulation, persistent memory, local AI, robot-side voice, dashboard controls, and the ESP32 motor bridge are separate layers so future hardware upgrades do not require rebuilding the whole robot.
