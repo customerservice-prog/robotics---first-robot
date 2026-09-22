@@ -3,6 +3,7 @@ from app.navigation.localization import CorrelativeLocalizer
 from app.navigation.mapping import LocalOccupancyMap
 from app.navigation.navigator import NavigationError, SupervisedNavigator
 from app.navigation.odometry import DifferentialOdometry
+from app.navigation.places import PlaceRecognitionError, PlaceRecognizer
 from app.navigation.planner import AStarPlanner
 
 __all__ = [
@@ -12,5 +13,7 @@ __all__ = [
     "DifferentialOdometry",
     "LocalOccupancyMap",
     "NavigationError",
+    "PlaceRecognitionError",
+    "PlaceRecognizer",
     "SupervisedNavigator",
 ]
