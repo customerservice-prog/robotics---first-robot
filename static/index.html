@@ -7,26 +7,28 @@
   <title>Ribitics Robot</title>
   <style>
     :root{color-scheme:dark;--bg:#070b12;--panel:#101826;--panel2:#0a121f;--line:#23314a;--accent:#65b5ff;--good:#4ed47a;--warn:#ffc857;--danger:#ff6677;--text:#f7f9fc;--muted:#93a3bb}
-    *{box-sizing:border-box}body{margin:0;min-height:100vh;color:var(--text);font-family:Inter,system-ui,sans-serif;background:radial-gradient(circle at 15% -5%,rgba(73,121,255,.22),transparent 34rem),radial-gradient(circle at 88% 8%,rgba(0,174,255,.12),transparent 28rem),var(--bg)}
-    button,input{font:inherit}.shell{width:min(1220px,100%);margin:auto;padding:22px}header{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;margin:4px 0 20px}.brand{display:flex;align-items:center;gap:14px}.logo{width:52px;height:52px;border-radius:16px;display:grid;place-items:center;font-weight:900;font-size:22px;background:linear-gradient(145deg,#1664b8,#6d7dff);box-shadow:0 12px 36px rgba(49,108,232,.28)}h1{margin:0;font-size:clamp(28px,5vw,48px);letter-spacing:-.045em;line-height:1}.sub{color:var(--muted);margin-top:7px;font-size:14px}.top-actions{display:flex;gap:10px;flex-wrap:wrap}.pill{border:1px solid var(--line);background:rgba(11,18,32,.82);padding:10px 13px;border-radius:999px;font-size:13px;white-space:nowrap}
-    .grid{display:grid;grid-template-columns:1.05fr .95fr;gap:16px}.card{background:linear-gradient(180deg,rgba(17,26,42,.94),rgba(12,19,31,.95));border:1px solid var(--line);border-radius:22px;padding:19px;box-shadow:0 20px 58px rgba(0,0,0,.25)}.full{grid-column:1/-1}.card-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px}.card h2{margin:0;font-size:18px}.eyebrow{color:var(--muted);text-transform:uppercase;letter-spacing:.12em;font-size:10px;font-weight:800;margin-bottom:6px}
+    *{box-sizing:border-box}body{margin:0;min-height:100vh;color:var(--text);font-family:Inter,system-ui,sans-serif;background:radial-gradient(circle at 12% -5%,rgba(73,121,255,.22),transparent 34rem),radial-gradient(circle at 88% 8%,rgba(0,174,255,.12),transparent 28rem),var(--bg)}
+    button,input{font:inherit}.shell{width:min(1280px,100%);margin:auto;padding:22px}header{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;margin:4px 0 20px}.brand{display:flex;align-items:center;gap:14px}.logo{width:52px;height:52px;border-radius:16px;display:grid;place-items:center;font-weight:900;font-size:22px;background:linear-gradient(145deg,#1664b8,#6d7dff);box-shadow:0 12px 36px rgba(49,108,232,.28)}h1{margin:0;font-size:clamp(28px,5vw,48px);letter-spacing:-.045em;line-height:1}.sub{color:var(--muted);margin-top:7px;font-size:14px}.top-actions{display:flex;gap:10px;flex-wrap:wrap}.pill{border:1px solid var(--line);background:rgba(11,18,32,.82);padding:10px 13px;border-radius:999px;font-size:13px;white-space:nowrap}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.card{background:linear-gradient(180deg,rgba(17,26,42,.94),rgba(12,19,31,.95));border:1px solid var(--line);border-radius:22px;padding:19px;box-shadow:0 20px 58px rgba(0,0,0,.25)}.full{grid-column:1/-1}.card-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px}.card h2{margin:0;font-size:18px}.eyebrow{color:var(--muted);text-transform:uppercase;letter-spacing:.12em;font-size:10px;font-weight:800;margin-bottom:6px}
     .status-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}.metric{background:var(--panel2);border:1px solid #1a263a;border-radius:15px;padding:12px;min-width:0}.metric span{display:block;color:var(--muted);font-size:11px}.metric strong{display:block;margin-top:5px;font-size:17px;overflow:hidden;text-overflow:ellipsis}.drive{display:grid;grid-template-columns:74px 74px 74px;grid-template-rows:64px 64px 64px;gap:9px;justify-content:center;margin:17px auto 12px}
-    button{border:1px solid #31415e;background:#162237;color:white;border-radius:14px;font-weight:800;cursor:pointer;transition:.12s}button:hover{border-color:var(--accent);background:#1b2b46}button:active{transform:scale(.97)}button:disabled{opacity:.45;cursor:not-allowed}.up{grid-column:2}.left{grid-column:1;grid-row:2}.stop{grid-column:2;grid-row:2;background:#59212b;border-color:#873343}.right{grid-column:3;grid-row:2}.down{grid-column:2;grid-row:3}.hint{color:var(--muted);font-size:12.5px;line-height:1.55;margin:9px 0 0}.danger{color:#ff9aa5}
-    .chatlog{height:330px;overflow:auto;background:#09111d;border:1px solid #1a263a;border-radius:16px;padding:13px}.msg{max-width:88%;padding:10px 12px;border-radius:14px;margin:8px 0;line-height:1.4;white-space:pre-wrap;font-size:14px}.me{background:#153c67;margin-left:auto}.bot{background:#182337}.composer{display:flex;gap:8px;margin-top:10px}input{min-width:0;flex:1;background:#08101b;border:1px solid #2b3a55;color:white;border-radius:13px;padding:12px 13px;outline:none}input:focus{border-color:var(--accent)}.send,.primary{padding:0 16px;background:linear-gradient(135deg,#1b67b8,#5369e5);border-color:#4b78bf}.mic{width:46px;font-size:18px}
-    .voice-panel{display:grid;gap:11px}.voice-hero{display:flex;align-items:center;justify-content:space-between;gap:14px;background:linear-gradient(135deg,rgba(37,91,155,.24),rgba(82,82,180,.12));border:1px solid #2b4264;border-radius:17px;padding:14px}.orb{width:47px;height:47px;border-radius:50%;flex:0 0 auto;background:radial-gradient(circle at 35% 30%,#b8e3ff 0 8%,#4ba9ff 20%,#3754d2 58%,#17233d 70%);box-shadow:0 0 0 7px rgba(89,151,255,.08),0 0 36px rgba(80,152,255,.32)}.voice-copy{flex:1;min-width:0}.voice-copy strong{display:block;font-size:16px}.voice-copy span{color:var(--muted);font-size:12px}.small-btn{padding:9px 12px;font-size:12px}.voice-data{display:grid;grid-template-columns:1fr 1fr;gap:9px}.data-box{background:#0a121f;border:1px solid #1a263a;border-radius:14px;padding:11px;min-height:72px}.data-box span{color:var(--muted);font-size:11px;display:block;margin-bottom:5px}.data-box div{font-size:13px;line-height:1.35;overflow-wrap:anywhere}.error-box{display:none;border:1px solid #6f3040;background:#331722;color:#ffabb4;padding:10px;border-radius:12px;font-size:12px}
-    .memory-list{max-height:250px;overflow:auto}.memory{border-bottom:1px solid #20304a;padding:10px 2px;color:#dce6f5;font-size:13px}.memory small{color:var(--muted);display:block;margin-top:4px}.footer-note{text-align:center;color:#6f8099;font-size:11px;margin:16px 0 2px}
-    @media(max-width:900px){.grid{grid-template-columns:1fr}.full{grid-column:auto}.status-grid{grid-template-columns:repeat(2,1fr)}header{flex-direction:column}.shell{padding:14px}}@media(max-width:520px){.voice-data{grid-template-columns:1fr}.composer{display:grid;grid-template-columns:46px 1fr}.send{grid-column:1/-1;height:44px}}
+    button{border:1px solid #31415e;background:#162237;color:white;border-radius:14px;font-weight:800;cursor:pointer;transition:.12s}button:hover{border-color:var(--accent);background:#1b2b46}button:active{transform:scale(.97)}button:disabled{opacity:.38;cursor:not-allowed}.up{grid-column:2}.left{grid-column:1;grid-row:2}.stop{grid-column:2;grid-row:2;background:#59212b;border-color:#873343}.right{grid-column:3;grid-row:2}.down{grid-column:2;grid-row:3}.hint{color:var(--muted);font-size:12.5px;line-height:1.55;margin:9px 0 0}.danger{color:#ff9aa5}.good{color:var(--good)}.warn{color:var(--warn)}
+    .chatlog{height:300px;overflow:auto;background:#09111d;border:1px solid #1a263a;border-radius:16px;padding:13px}.msg{max-width:88%;padding:10px 12px;border-radius:14px;margin:8px 0;line-height:1.4;white-space:pre-wrap;font-size:14px}.me{background:#153c67;margin-left:auto}.bot{background:#182337}.composer{display:flex;gap:8px;margin-top:10px}input{min-width:0;flex:1;background:#08101b;border:1px solid #2b3a55;color:white;border-radius:13px;padding:12px 13px;outline:none}input:focus{border-color:var(--accent)}.send,.primary{padding:0 16px;background:linear-gradient(135deg,#1b67b8,#5369e5);border-color:#4b78bf}.mic{width:46px;font-size:18px}
+    .voice-panel,.vision-panel{display:grid;gap:11px}.hero-row{display:flex;align-items:center;justify-content:space-between;gap:14px;background:linear-gradient(135deg,rgba(37,91,155,.24),rgba(82,82,180,.12));border:1px solid #2b4264;border-radius:17px;padding:14px}.orb{width:47px;height:47px;border-radius:50%;flex:0 0 auto;background:radial-gradient(circle at 35% 30%,#b8e3ff 0 8%,#4ba9ff 20%,#3754d2 58%,#17233d 70%);box-shadow:0 0 0 7px rgba(89,151,255,.08),0 0 36px rgba(80,152,255,.32)}.hero-copy{flex:1;min-width:0}.hero-copy strong{display:block;font-size:16px}.hero-copy span{color:var(--muted);font-size:12px}.small-btn{padding:9px 12px;font-size:12px}.data-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}.data-box{background:#0a121f;border:1px solid #1a263a;border-radius:14px;padding:11px;min-height:72px}.data-box span{color:var(--muted);font-size:11px;display:block;margin-bottom:5px}.data-box div{font-size:13px;line-height:1.35;overflow-wrap:anywhere}.error-box{display:none;border:1px solid #6f3040;background:#331722;color:#ffabb4;padding:10px;border-radius:12px;font-size:12px}
+    .camera-wrap{position:relative;aspect-ratio:16/9;border-radius:17px;overflow:hidden;background:#050a12;border:1px solid #22324a;display:grid;place-items:center}.camera-wrap img{width:100%;height:100%;object-fit:cover;display:none}.camera-placeholder{color:#63748d;text-align:center;font-size:13px;padding:20px}.motion-chip{position:absolute;left:12px;bottom:12px;background:rgba(5,10,18,.78);border:1px solid #32435d;border-radius:999px;padding:7px 10px;font-size:11px;backdrop-filter:blur(8px)}
+    .spatial-hero{display:grid;grid-template-columns:1.2fr .8fr;gap:10px}.path-box{background:#0a121f;border:1px solid #21304a;border-radius:17px;padding:15px}.path-box strong{font-size:20px;display:block;margin:4px 0}.distance-big{font-size:34px;font-weight:900;letter-spacing:-.04em}.sim-row{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}.sim-row button{padding:8px 10px;font-size:11px}
+    .memory-list{max-height:230px;overflow:auto}.memory{border-bottom:1px solid #20304a;padding:10px 2px;color:#dce6f5;font-size:13px}.memory small{color:var(--muted);display:block;margin-top:4px}.footer-note{text-align:center;color:#6f8099;font-size:11px;margin:16px 0 2px}
+    @media(max-width:940px){.grid{grid-template-columns:1fr}.full{grid-column:auto}.status-grid{grid-template-columns:repeat(2,1fr)}header{flex-direction:column}.shell{padding:14px}}@media(max-width:540px){.data-grid,.spatial-hero{grid-template-columns:1fr}.composer{display:grid;grid-template-columns:46px 1fr}.send{grid-column:1/-1;height:44px}}
   </style>
 </head>
 <body>
 <div class="shell">
   <header>
-    <div class="brand"><div class="logo">R</div><div><h1>Ribitics</h1><div class="sub">Local robot brain · persistent memory · standalone voice · hardware bridge</div></div></div>
-    <div class="top-actions"><div id="connection" class="pill">Connecting…</div><div id="voicePill" class="pill">Voice: checking…</div></div>
+    <div class="brand"><div class="logo">R</div><div><h1>Ribitics</h1><div class="sub">Local robot brain · voice · vision · spatial safety · memory</div></div></div>
+    <div class="top-actions"><div id="connection" class="pill">Robot: connecting…</div><div id="pathPill" class="pill">Path: checking…</div><div id="cameraPill" class="pill">Camera: checking…</div><div id="voicePill" class="pill">Voice: checking…</div></div>
   </header>
   <div class="grid">
     <section class="card">
-      <div class="card-head"><div><div class="eyebrow">Hardware</div><h2>Robot control</h2></div><div id="estopPill" class="pill">E-stop clear</div></div>
+      <div class="card-head"><div><div class="eyebrow">Hardware</div><h2>Manual drive</h2></div><div id="estopPill" class="pill">E-stop clear</div></div>
       <div class="status-grid">
         <div class="metric"><span>Mode</span><strong id="mode">—</strong></div>
         <div class="metric"><span>Battery</span><strong id="battery">—</strong></div>
@@ -41,57 +43,105 @@
         <button class="down" data-linear="-1" data-angular="0">▼</button>
       </div>
       <p id="hardwareMessage" class="hint">Waiting for hardware status…</p>
-      <p class="hint danger">Keep the robot in sight during manual movement. The physical emergency stop must cut motor power independently of this software.</p>
+      <p class="hint danger">Forward is software-blocked by close front obstacles. A physical emergency stop must still cut motor power independently.</p>
     </section>
+
+    <section class="card">
+      <div class="card-head"><div><div class="eyebrow">Spatial awareness</div><h2>What is around Ribitics</h2></div><div id="hazardBadge" class="pill">Checking</div></div>
+      <div class="spatial-hero">
+        <div class="path-box"><span class="eyebrow">Front path</span><strong id="pathState">Checking…</strong><div id="pathReason" class="hint">Waiting for sensors.</div></div>
+        <div class="path-box"><span class="eyebrow">Nearest forward</span><div id="frontDistance" class="distance-big">—</div><div class="hint">stop threshold <span id="stopThreshold">35</span> cm</div></div>
+      </div>
+      <div class="data-grid" style="margin-top:10px">
+        <div class="data-box"><span>Left distance</span><div id="leftDistance">—</div></div>
+        <div class="data-box"><span>Right distance</span><div id="rightDistance">—</div></div>
+        <div class="data-box"><span>Front bumpers</span><div id="bumpers">clear</div></div>
+        <div class="data-box"><span>LiDAR telemetry</span><div id="lidar">not connected</div></div>
+      </div>
+      <div id="simControls" style="display:none"><p class="hint">Simulation shortcuts:</p><div class="sim-row"><button data-sim="clear">Clear 150 cm</button><button data-sim="warn">Warning 55 cm</button><button data-sim="stop">Obstacle 20 cm</button><button data-sim="bumper">Press bumper</button><button data-sim="none">No sensor</button></div></div>
+    </section>
+
+    <section class="card">
+      <div class="card-head"><div><div class="eyebrow">Vision</div><h2>Robot camera</h2></div><button id="cameraToggle" class="small-btn primary">Start camera</button></div>
+      <div class="vision-panel">
+        <div class="camera-wrap"><img id="cameraFrame" alt="Live Ribitics camera frame" /><div id="cameraPlaceholder" class="camera-placeholder">Camera is stopped. Install the optional vision package and connect a USB camera, then start it here.</div><div id="motionChip" class="motion-chip">No live frame</div></div>
+        <div class="data-grid"><div class="data-box"><span>Camera state</span><div id="cameraState">Stopped</div></div><div class="data-box"><span>Resolution / FPS</span><div id="cameraStats">—</div></div></div>
+        <div id="cameraError" class="error-box"></div>
+        <p class="hint">This release provides live frames and local motion detection. It does not pretend to identify objects without an installed object-recognition model.</p>
+      </div>
+    </section>
+
     <section class="card">
       <div class="card-head"><div><div class="eyebrow">Conversation</div><h2>Talk to Ribitics</h2></div></div>
-      <div id="chatlog" class="chatlog"><div class="msg bot">I'm online. Say “remember that …” to teach me something permanently.</div></div>
+      <div id="chatlog" class="chatlog"><div class="msg bot">I'm online. Ask “is the path clear?” and I’ll answer from live sensor state instead of guessing.</div></div>
       <div class="composer"><button id="mic" class="mic">🎙</button><input id="message" placeholder="Ask Ribitics anything…" autocomplete="off" /><button id="send" class="send">Send</button></div>
-      <p class="hint">The browser microphone is a backup. Standalone voice uses the robot's own USB microphone and speaker.</p>
+      <p class="hint">Live spatial and camera status is supplied to the local AI as grounded context.</p>
     </section>
+
     <section class="card">
       <div class="card-head"><div><div class="eyebrow">Hands-free</div><h2>Standalone voice</h2></div></div>
       <div class="voice-panel">
-        <div class="voice-hero"><div class="orb"></div><div class="voice-copy"><strong id="voiceState">Checking microphone…</strong><span id="wakeLabel">Wake phrase: “Hey Ribitics”</span></div><button id="voiceToggle" class="small-btn primary">Start</button></div>
-        <div class="voice-data"><div class="data-box"><span>Last heard</span><div id="lastHeard">Nothing yet</div></div><div class="data-box"><span>Last response</span><div id="lastReply">Nothing yet</div></div></div>
+        <div class="hero-row"><div class="orb"></div><div class="hero-copy"><strong id="voiceState">Checking microphone…</strong><span id="wakeLabel">Wake phrase: “Hey Ribitics”</span></div><button id="voiceToggle" class="small-btn primary">Start</button></div>
+        <div class="data-grid"><div class="data-box"><span>Last heard</span><div id="lastHeard">Nothing yet</div></div><div class="data-box"><span>Last response</span><div id="lastReply">Nothing yet</div></div></div>
         <div id="voiceError" class="error-box"></div>
-        <p class="hint">Ribitics listens locally for its wake phrase, transcribes speech offline with Vosk, sends it to the local brain, then speaks through the robot speaker.</p>
       </div>
     </section>
+
     <section class="card">
       <div class="card-head"><div><div class="eyebrow">Long-term</div><h2>Persistent memory</h2></div><div class="pill">SQLite</div></div>
       <div id="memories" class="memory-list"></div>
-      <p class="hint">Recent dialogue now persists too, so follow-up questions keep their context.</p>
+      <p class="hint">Long-term facts and recent conversation both persist locally.</p>
     </section>
+
     <section class="card full">
-      <div class="card-head"><div><div class="eyebrow">System</div><h2>Local-first stack</h2></div></div>
-      <div class="status-grid"><div class="metric"><span>Wake phrase</span><strong>Offline</strong></div><div class="metric"><span>Speech recognition</span><strong>Vosk</strong></div><div class="metric"><span>AI brain</span><strong>Ollama</strong></div><div class="metric"><span>Memory</span><strong>SQLite</strong></div></div>
-      <p class="hint">After the models are installed, normal conversation does not require a paid AI API.</p>
+      <div class="card-head"><div><div class="eyebrow">System</div><h2>Ribitics v0.3 stack</h2></div></div>
+      <div class="status-grid"><div class="metric"><span>Wake phrase / STT</span><strong>Vosk</strong></div><div class="metric"><span>AI brain</span><strong>Ollama</strong></div><div class="metric"><span>Vision</span><strong>OpenCV</strong></div><div class="metric"><span>Safety</span><strong>Host + ESP32</strong></div></div>
+      <p class="hint">Autonomous navigation remains disabled. Camera and proximity data are now available for the next LiDAR / mapping stage, but movement is still manual and supervised.</p>
     </section>
   </div>
-  <div class="footer-note">Ribitics Robot v0.2 · software stop is not a physical emergency stop</div>
+  <div class="footer-note">Ribitics Robot v0.3 · camera/proximity safety supplements, but never replaces, the physical emergency stop</div>
 </div>
 <script>
 const qs=function(s){return document.querySelector(s)};
 const token=localStorage.getItem('ribiticsToken')||'';
+let cameraReady=false;
+let cameraObjectUrl='';
 function authHeaders(){return token?{'Content-Type':'application/json','X-Ribitics-Token':token}:{'Content-Type':'application/json'}}
+function authGetHeaders(){return token?{'X-Ribitics-Token':token}:{}}
+function fmtDistance(v){return v===null||v===undefined?'—':Number(v).toFixed(1)+' cm'}
 function addMessage(text,who){var d=document.createElement('div');d.className='msg '+(who||'bot');d.textContent=text;qs('#chatlog').appendChild(d);qs('#chatlog').scrollTop=qs('#chatlog').scrollHeight}
 function speakBrowser(text){if('speechSynthesis' in window){speechSynthesis.cancel();speechSynthesis.speak(new SpeechSynthesisUtterance(text))}}
-async function robotStatus(){try{var r=await fetch('/api/status');var s=await r.json();qs('#connection').textContent=s.connected?'● Robot connected':'● Robot disconnected';qs('#connection').style.color=s.connected?'#4ed47a':'#ff6677';qs('#mode').textContent=s.mode;qs('#battery').textContent=s.battery_voltage?s.battery_voltage.toFixed(1)+'V':'—';qs('#leftMotor').textContent=s.left_motor+'%';qs('#rightMotor').textContent=s.right_motor+'%';qs('#hardwareMessage').textContent=s.last_message||'No hardware message';qs('#estopPill').textContent=s.estop?'E-STOP ACTIVE':'E-stop clear';qs('#estopPill').style.color=s.estop?'#ff6677':'#4ed47a'}catch(e){qs('#connection').textContent='● Backend offline';qs('#connection').style.color='#ff6677'}}
-async function drive(linear,angular){await fetch('/api/drive',{method:'POST',headers:authHeaders(),body:JSON.stringify({linear:linear,angular:angular})});robotStatus()}
+
+async function robotStatus(){try{var r=await fetch('/api/status');var s=await r.json();qs('#connection').textContent=s.connected?'● Robot connected':'● Robot disconnected';qs('#connection').style.color=s.connected?'#4ed47a':'#ff6677';qs('#mode').textContent=s.mode;qs('#battery').textContent=s.battery_voltage?Number(s.battery_voltage).toFixed(1)+'V':'—';qs('#leftMotor').textContent=s.left_motor+'%';qs('#rightMotor').textContent=s.right_motor+'%';qs('#hardwareMessage').textContent=s.last_message||'No hardware message';qs('#estopPill').textContent=s.estop?'E-STOP ACTIVE':'E-stop clear';qs('#estopPill').style.color=s.estop?'#ff6677':'#4ed47a';qs('#simControls').style.display=s.mode==='simulation'?'block':'none'}catch(e){qs('#connection').textContent='● Backend offline';qs('#connection').style.color='#ff6677'}}
+
+async function spatialStatus(){try{var r=await fetch('/api/spatial/status');var s=await r.json();var colors={clear:'#4ed47a',warning:'#ffc857',stop:'#ff6677',unknown:'#93a3bb'};var color=colors[s.hazard_level]||'#93a3bb';qs('#hazardBadge').textContent=s.hazard_level.toUpperCase();qs('#hazardBadge').style.color=color;qs('#pathPill').textContent=s.clear_to_move_forward?'● Forward allowed':'● Forward blocked';qs('#pathPill').style.color=s.clear_to_move_forward?color:'#ff6677';qs('#pathState').textContent=s.clear_to_move_forward?'Forward available':'Forward blocked';qs('#pathState').style.color=s.clear_to_move_forward?color:'#ff6677';qs('#pathReason').textContent=s.reason;qs('#frontDistance').textContent=fmtDistance(s.nearest_forward_distance_cm);qs('#leftDistance').textContent=fmtDistance(s.left_distance_cm);qs('#rightDistance').textContent=fmtDistance(s.right_distance_cm);qs('#bumpers').textContent=(s.front_bumper_left?'LEFT ':'')+(s.front_bumper_right?'RIGHT':'')||'clear';qs('#bumpers').style.color=(s.front_bumper_left||s.front_bumper_right)?'#ff6677':'#4ed47a';qs('#lidar').textContent=s.lidar_connected?(s.lidar_min_distance_cm!==null?'connected · '+fmtDistance(s.lidar_min_distance_cm):'connected'):'not connected';qs('#stopThreshold').textContent=s.obstacle_stop_cm;qs('.up').disabled=!s.clear_to_move_forward}catch(e){}}
+
+async function drive(linear,angular){try{var r=await fetch('/api/drive',{method:'POST',headers:authHeaders(),body:JSON.stringify({linear:linear,angular:angular})});if(r.status===409){var data=await r.json();qs('#hardwareMessage').textContent='Safety block: '+data.detail;await spatialStatus();return}if(!r.ok)throw new Error('drive failed');await robotStatus()}catch(e){qs('#hardwareMessage').textContent='Drive command failed'}}
 async function stop(){await fetch('/api/stop',{method:'POST',headers:authHeaders()});robotStatus()}
-document.querySelectorAll('[data-linear]').forEach(function(b){var start=function(e){e.preventDefault();drive(Number(b.dataset.linear),Number(b.dataset.angular))};b.addEventListener('pointerdown',start);b.addEventListener('pointerup',stop);b.addEventListener('pointerleave',stop);b.addEventListener('pointercancel',stop)});
+document.querySelectorAll('[data-linear]').forEach(function(b){var start=function(e){e.preventDefault();if(!b.disabled)drive(Number(b.dataset.linear),Number(b.dataset.angular))};b.addEventListener('pointerdown',start);b.addEventListener('pointerup',stop);b.addEventListener('pointerleave',stop);b.addEventListener('pointercancel',stop)});
 qs('#stop').onclick=stop;
+
+document.querySelectorAll('[data-sim]').forEach(function(b){b.onclick=async function(){var type=b.dataset.sim;var payload={front_distance_cm:null,left_distance_cm:null,right_distance_cm:null,front_bumper_left:false,front_bumper_right:false,lidar_connected:false,lidar_min_distance_cm:null};if(type==='clear')payload.front_distance_cm=150;if(type==='warn')payload.front_distance_cm=55;if(type==='stop')payload.front_distance_cm=20;if(type==='bumper')payload.front_bumper_left=true;await fetch('/api/simulation/sensors',{method:'POST',headers:authHeaders(),body:JSON.stringify(payload)});spatialStatus();robotStatus()}});
+
+async function cameraStatus(){try{var r=await fetch('/api/camera/status');var c=await r.json();cameraReady=c.ready;qs('#cameraToggle').textContent=c.running?'Stop camera':'Start camera';qs('#cameraToggle').dataset.running=c.running?'1':'0';qs('#cameraState').textContent=c.state;qs('#cameraStats').textContent=c.ready?(c.width+'×'+c.height+' · '+Number(c.fps).toFixed(1)+' fps'):'—';qs('#motionChip').textContent=c.ready?(c.motion_detected?'● Motion detected':'● No significant motion'):'No live frame';qs('#motionChip').style.color=c.motion_detected?'#ffc857':'#93a3bb';qs('#cameraPill').textContent=c.ready?'● Camera live':c.state==='error'?'● Camera error':c.running?'● Camera starting':'● Camera stopped';qs('#cameraPill').style.color=c.ready?'#4ed47a':c.state==='error'?'#ff6677':'#ffc857';if(c.last_error){qs('#cameraError').style.display='block';qs('#cameraError').textContent=c.last_error}else{qs('#cameraError').style.display='none';qs('#cameraError').textContent=''}if(!c.ready){qs('#cameraFrame').style.display='none';qs('#cameraPlaceholder').style.display='block'}}catch(e){qs('#cameraPill').textContent='● Camera unavailable';qs('#cameraPill').style.color='#ff6677'}}
+qs('#cameraToggle').onclick=async function(){var running=qs('#cameraToggle').dataset.running==='1';qs('#cameraToggle').disabled=true;try{await fetch(running?'/api/camera/stop':'/api/camera/start',{method:'POST',headers:authHeaders()})}finally{qs('#cameraToggle').disabled=false;setTimeout(cameraStatus,200)}};
+
+async function refreshCameraFrame(){if(!cameraReady)return;try{var r=await fetch('/api/camera/snapshot',{headers:authGetHeaders(),cache:'no-store'});if(!r.ok)return;var blob=await r.blob();var url=URL.createObjectURL(blob);qs('#cameraFrame').src=url;qs('#cameraFrame').style.display='block';qs('#cameraPlaceholder').style.display='none';if(cameraObjectUrl)URL.revokeObjectURL(cameraObjectUrl);cameraObjectUrl=url}catch(e){}}
+
 async function send(){var input=qs('#message');var message=input.value.trim();if(!message)return;input.value='';addMessage(message,'me');try{var r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:message})});if(!r.ok)throw new Error('chat failed');var data=await r.json();addMessage(data.reply,'bot');speakBrowser(data.reply);loadMemories()}catch(e){addMessage('I could not reach the robot brain.','bot')}}
 qs('#send').onclick=send;qs('#message').addEventListener('keydown',function(e){if(e.key==='Enter')send()});
 var SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
-if(SpeechRecognition){var rec=new SpeechRecognition();rec.lang='en-US';rec.interimResults=false;rec.onresult=function(e){qs('#message').value=e.results[0][0].transcript;send()};rec.onerror=function(){addMessage('Browser microphone recognition failed. The robot-side offline microphone can still be used.','bot')};qs('#mic').onclick=function(){rec.start()}}else{qs('#mic').onclick=function(){addMessage('This browser does not expose speech recognition. Use robot-side voice or type here.','bot')}}
+if(SpeechRecognition){var rec=new SpeechRecognition();rec.lang='en-US';rec.interimResults=false;rec.onresult=function(e){qs('#message').value=e.results[0][0].transcript;send()};rec.onerror=function(){addMessage('Browser microphone recognition failed. Robot-side offline voice can still be used.','bot')};qs('#mic').onclick=function(){rec.start()}}else{qs('#mic').onclick=function(){addMessage('This browser does not expose speech recognition. Use robot-side voice or type here.','bot')}}
+
 function prettyVoiceState(v){var names={stopped:'Stopped',starting:'Starting microphone…',waiting_for_wake:'Listening for wake phrase',listening_for_command:'Listening for your command',thinking:'Thinking…',speaking:'Speaking…',error:'Voice needs attention'};return names[v.state]||v.state||'Unknown'}
 async function voiceStatus(){try{var r=await fetch('/api/voice/status');var v=await r.json();qs('#voiceState').textContent=prettyVoiceState(v);qs('#wakeLabel').textContent='Wake phrase: “'+v.wake_phrase+'” · '+v.engine;qs('#lastHeard').textContent=v.last_heard||'Nothing yet';qs('#lastReply').textContent=v.last_reply||'Nothing yet';qs('#voiceToggle').textContent=v.running?'Stop':'Start';qs('#voiceToggle').dataset.running=v.running?'1':'0';qs('#voicePill').textContent=v.ready?'● Voice ready':v.state==='error'?'● Voice error':v.running?'● Voice starting':'● Voice stopped';qs('#voicePill').style.color=v.ready?'#4ed47a':v.state==='error'?'#ff6677':'#ffc857';if(v.last_error){qs('#voiceError').style.display='block';qs('#voiceError').textContent=v.last_error}else{qs('#voiceError').style.display='none';qs('#voiceError').textContent=''}}catch(e){qs('#voicePill').textContent='● Voice unavailable';qs('#voicePill').style.color='#ff6677'}}
 qs('#voiceToggle').onclick=async function(){var running=qs('#voiceToggle').dataset.running==='1';qs('#voiceToggle').disabled=true;try{await fetch(running?'/api/voice/stop':'/api/voice/start',{method:'POST',headers:authHeaders()})}finally{qs('#voiceToggle').disabled=false;voiceStatus()}};
+
 function escapeHtml(s){return String(s).replace(/[&<>'"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]})}
 async function loadMemories(){try{var r=await fetch('/api/memories?limit=20');var ms=await r.json();if(!ms.length){qs('#memories').innerHTML='<div class="hint">No memories saved yet.</div>';return}qs('#memories').innerHTML=ms.map(function(m){return '<div class="memory">'+escapeHtml(m.content)+'<small>importance '+m.importance+' · '+(m.tags.map(escapeHtml).join(', ')||'untagged')+'</small></div>'}).join('')}catch(e){}}
-setInterval(robotStatus,1000);setInterval(voiceStatus,1200);robotStatus();voiceStatus();loadMemories();
+
+setInterval(robotStatus,1000);setInterval(spatialStatus,650);setInterval(cameraStatus,1200);setInterval(refreshCameraFrame,800);setInterval(voiceStatus,1200);
+robotStatus();spatialStatus();cameraStatus();voiceStatus();loadMemories();
 </script>
 </body>
 </html>
