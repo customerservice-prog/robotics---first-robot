@@ -82,6 +82,34 @@ class CameraStatus(BaseModel):
     last_error: str = ""
 
 
+class LidarPoint(BaseModel):
+    angle_deg: float
+    distance_cm: float
+    quality: float | None = None
+
+
+class LidarStatus(BaseModel):
+    auto_start: bool
+    running: bool
+    ready: bool
+    state: str = "stopped"
+    model: str = "RPLIDAR-A1"
+    port: str = "/dev/ttyUSB0"
+    scan_points: int = 0
+    scan_hz: float = 0.0
+    front_min_distance_cm: float | None = None
+    left_min_distance_cm: float | None = None
+    right_min_distance_cm: float | None = None
+    overall_min_distance_cm: float | None = None
+    last_scan_at: datetime | None = None
+    last_error: str = ""
+
+
+class LidarScan(BaseModel):
+    points: list[LidarPoint] = Field(default_factory=list)
+    captured_at: datetime | None = None
+
+
 class SpatialStatus(BaseModel):
     sensors_available: bool
     clear_to_move_forward: bool
