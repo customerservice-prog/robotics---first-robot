@@ -14,10 +14,10 @@ def normalize_heading_deg(value: float) -> float:
 
 
 class DifferentialOdometry:
-    """Encoder-only local dead reckoning for a differential-drive robot.
+    """Encoder local dead reckoning with externally-applied pose corrections.
 
-    This is intentionally not presented as global localization. Wheel slip and encoder
-    calibration errors accumulate until a later scan-matching/localization layer corrects them.
+    Encoder ticks remain the motion source. A localization layer may correct the estimated
+    x/y/heading without changing encoder baselines, so subsequent tick deltas continue smoothly.
     """
 
     def __init__(
@@ -53,6 +53,8 @@ class DifferentialOdometry:
         self._linear_velocity = 0.0
         self._angular_velocity = 0.0
         self._distance_traveled = 0.0
+        self._correction_count = 0
+        self._last_correction_at: datetime | None = None
         self._last_error = ""
 
     def start(self) -> OdometryStatus:
@@ -94,6 +96,21 @@ class DifferentialOdometry:
             self._linear_velocity = 0.0
             self._angular_velocity = 0.0
             self._distance_traveled = 0.0
+            self._correction_count = 0
+            self._last_correction_at = None
+            self._last_error = ""
+        return self.status()
+
+    def apply_pose_correction(self, pose: Pose2D) -> OdometryStatus:
+        """Shift the pose estimate while preserving current encoder baselines."""
+        corrected = Pose2D.model_validate(pose.model_dump())
+        corrected.heading_deg = normalize_heading_deg(corrected.heading_deg)
+        with self._lock:
+            self._pose = corrected
+            self._correction_count += 1
+            self._last_correction_at = datetime.now(timezone.utc)
+            self._last_update_monotonic = time.monotonic()
+            self._last_update_at = self._last_correction_at
             self._last_error = ""
         return self.status()
 
@@ -180,6 +197,8 @@ class DifferentialOdometry:
             linear_velocity_cm_s=self._linear_velocity,
             angular_velocity_deg_s=self._angular_velocity,
             distance_traveled_cm=self._distance_traveled,
+            correction_count=self._correction_count,
+            last_correction_at=self._last_correction_at,
             last_update_at=self._last_update_at,
             last_error=self._last_error,
         )
