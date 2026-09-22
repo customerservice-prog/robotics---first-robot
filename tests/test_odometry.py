@@ -83,3 +83,21 @@ def pytest_approx(value: float, tolerance: float):
             return abs(other - value) <= tolerance
 
     return Approx()
+
+
+
+def test_pose_correction_preserves_encoder_baseline():
+    hardware = EncoderHardware()
+    odom = make_odometry(hardware)
+    odom.reset(Pose2D())
+    hardware.left = 180
+    hardware.right = 180
+    odom.update_once()
+    odom.apply_pose_correction(Pose2D(x_cm=100, y_cm=50, heading_deg=0))
+    hardware.left = 360
+    hardware.right = 360
+    status = odom.update_once()
+    half_circumference = math.pi * 6.5 / 2
+    assert status.pose.x_cm == pytest_approx(100 + half_circumference, 0.05)
+    assert status.pose.y_cm == pytest_approx(50, 0.05)
+    assert status.correction_count == 1
