@@ -1,18 +1,35 @@
 import pytest
 
 from app.hardware.simulated import SimulatedHardware
-from app.models import SimulationSensors
+from app.models import LidarStatus, SimulationSensors
 from app.perception.spatial import SpatialAwareness
 from app.robot import RobotController, UnsafeDriveError
 
 
-def build_robot(*, require_proximity: bool = False):
+class FakeLidar:
+    def __init__(self, front_cm: float | None):
+        self.front_cm = front_cm
+
+    def status(self) -> LidarStatus:
+        return LidarStatus(
+            auto_start=False,
+            running=True,
+            ready=True,
+            state="scanning",
+            front_min_distance_cm=self.front_cm,
+            left_min_distance_cm=120,
+            right_min_distance_cm=140,
+        )
+
+
+def build_robot(*, require_proximity: bool = False, lidar=None):
     hardware = SimulatedHardware("Ribitics")
     awareness = SpatialAwareness(
         hardware,
         stop_cm=35,
         warn_cm=70,
         require_proximity_for_forward=require_proximity,
+        lidar=lidar,
     )
     controller = RobotController(hardware, 65, awareness)
     return hardware, awareness, controller
@@ -66,4 +83,16 @@ def test_front_bumper_blocks_forward_even_without_distance():
     assert status.hazard_level == "stop"
     assert "bumper" in status.reason.lower()
     with pytest.raises(UnsafeDriveError):
+        controller.drive(0.5, 0)
+
+
+def test_close_usb_lidar_point_blocks_forward_and_populates_side_distances():
+    hardware, awareness, controller = build_robot(lidar=FakeLidar(25))
+    status = awareness.status()
+    assert status.lidar_connected is True
+    assert status.lidar_min_distance_cm == 25
+    assert status.left_distance_cm == 120
+    assert status.right_distance_cm == 140
+    assert status.clear_to_move_forward is False
+    with pytest.raises(UnsafeDriveError, match="25.0 cm"):
         controller.drive(0.5, 0)
