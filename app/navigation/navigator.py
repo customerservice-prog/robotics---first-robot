@@ -6,6 +6,7 @@ import time
 from datetime import datetime, timezone
 
 from app.models import NavigationGoal, NavigationPlan, NavigationStatus
+from app.navigation.localization import CorrelativeLocalizer
 from app.navigation.mapping import LocalOccupancyMap
 from app.navigation.odometry import DifferentialOdometry, normalize_heading_deg
 from app.navigation.planner import AStarPlanner
@@ -35,6 +36,8 @@ class SupervisedNavigator:
         awareness: SpatialAwareness,
         lidar: LidarService,
         hardware_mode: str,
+        localization: CorrelativeLocalizer | None = None,
+        min_localization_confidence: float = 0.55,
         hardware_execution_enabled: bool,
         allow_unknown: bool,
         max_goal_distance_cm: float,
@@ -51,6 +54,11 @@ class SupervisedNavigator:
         self.awareness = awareness
         self.lidar = lidar
         self.hardware_mode = hardware_mode
+        self.localization = localization
+        self.min_localization_confidence = max(
+            0.05,
+            min(0.95, float(min_localization_confidence)),
+        )
         self.hardware_execution_enabled = hardware_execution_enabled
         self.allow_unknown = allow_unknown
         self.max_goal_distance_cm = max(10.0, float(max_goal_distance_cm))
@@ -72,6 +80,7 @@ class SupervisedNavigator:
         self._started_at: datetime | None = None
         self._last_update_at: datetime | None = None
         self._last_error = ""
+        self._localization_correction_at_start = 0
 
     def hardware_execution_allowed(self) -> tuple[bool, str]:
         if self.hardware_mode == "simulation":
@@ -93,6 +102,20 @@ class SupervisedNavigator:
         map_status = self.map.status()
         if not map_status.ready:
             return False, "Local occupancy map is not ready"
+        if map_status.learning_enabled:
+            return False, "Reference map must be frozen before hardware navigation"
+
+        if self.localization is None:
+            return False, "LiDAR localization service is unavailable"
+        localization = self.localization.status()
+        if not localization.ready:
+            return False, "LiDAR localization is not ready"
+        if localization.confidence < self.min_localization_confidence:
+            return (
+                False,
+                f"Localization confidence {localization.confidence:.2f} is below "
+                f"required {self.min_localization_confidence:.2f}",
+            )
 
         spatial = self.awareness.status()
         if spatial.hazard_level == "stop":
@@ -135,6 +158,11 @@ class SupervisedNavigator:
             raise NavigationError(plan.reason or "No route available")
 
         self._cancel_event.clear()
+        localization_count = (
+            self.localization.status().correction_count
+            if self.localization is not None
+            else 0
+        )
         with self._lock:
             self._running = True
             self._state = "running"
@@ -142,6 +170,7 @@ class SupervisedNavigator:
             self._started_at = datetime.now(timezone.utc)
             self._last_update_at = self._started_at
             self._last_error = ""
+            self._localization_correction_at_start = localization_count
         self._thread = threading.Thread(target=self._run, name="ribitics-navigation", daemon=True)
         self._thread.start()
         return self.status()
@@ -186,6 +215,11 @@ class SupervisedNavigator:
                 else None
             )
             plan = self._plan
+            localization_confidence = (
+                self.localization.status().confidence
+                if self.localization is not None
+                else None
+            )
             return NavigationStatus(
                 enabled=self.hardware_mode == "simulation" or self.hardware_execution_enabled,
                 hardware_execution_allowed=allowed,
@@ -197,6 +231,7 @@ class SupervisedNavigator:
                 waypoint_count=len(plan.waypoints) if plan else 0,
                 planned_distance_cm=plan.planned_distance_cm if plan else 0.0,
                 distance_remaining_cm=remaining,
+                localization_confidence=localization_confidence,
                 started_at=self._started_at,
                 last_update_at=self._last_update_at,
                 last_error=self._last_error,
@@ -231,6 +266,30 @@ class SupervisedNavigator:
                         lidar = self.lidar.status()
                         if not lidar.ready:
                             raise NavigationError("LiDAR became unavailable during navigation")
+                        if self.localization is None:
+                            raise NavigationError("Localization became unavailable during navigation")
+                        localization = self.localization.status()
+                        if (
+                            not localization.ready
+                            or localization.confidence < self.min_localization_confidence
+                        ):
+                            self.robot.stop()
+                            self._finish(
+                                "blocked",
+                                "Localization confidence dropped below the navigation gate. "
+                                "Relocalize and replan before continuing.",
+                            )
+                            return
+                        with self._lock:
+                            correction_at_start = self._localization_correction_at_start
+                        if localization.correction_count != correction_at_start:
+                            self.robot.stop()
+                            self._finish(
+                                "blocked",
+                                "Pose was corrected by LiDAR localization. "
+                                "Replan from the corrected pose before continuing.",
+                            )
+                            return
 
                     spatial = self.awareness.status()
                     if not spatial.clear_to_move_forward:
