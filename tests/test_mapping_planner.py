@@ -69,3 +69,32 @@ def test_goal_inside_inflated_obstacle_is_rejected():
     )
     assert plan.found is False
     assert "occupied" in plan.reason.lower()
+
+
+
+def test_sparse_map_persistence_round_trip(tmp_path):
+    mapping, odom = build_map()
+    path = tmp_path / "warehouse-map.json"
+    mapping.persistence_path = path
+    mapping.add_virtual_obstacle(100, 0, 20)
+    mapping.set_learning(False)
+    saved = mapping.save()
+    assert saved.success is True
+    assert path.exists()
+
+    lidar = mapping.lidar
+    restored = LocalOccupancyMap(
+        lidar,
+        odom,
+        resolution_cm=5,
+        size_cm=600,
+        robot_radius_cm=20,
+        persistence_path=str(path),
+    )
+    loaded = restored.load()
+    assert loaded.success is True
+    status = restored.status()
+    assert status.loaded_from_disk is True
+    assert status.learning_enabled is False
+    assert status.dirty is False
+    assert restored.grid_copy() == mapping.grid_copy()
