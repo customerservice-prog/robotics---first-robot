@@ -26,6 +26,10 @@ from app.models import (
     NavigationPlan,
     NavigationStatus,
     OdometryStatus,
+    PlaceAnchor,
+    PlaceAnchorCreate,
+    PlaceRecognitionResult,
+    PlaceRecognitionStatus,
     Pose2D,
     RelocalizeRequest,
     RobotStatus,
@@ -42,6 +46,8 @@ from app.navigation import (
     DockingFoundation,
     LocalOccupancyMap,
     NavigationError,
+    PlaceRecognitionError,
+    PlaceRecognizer,
     SupervisedNavigator,
 )
 from app.perception.camera import CameraService
@@ -131,6 +137,21 @@ localizer = CorrelativeLocalizer(
     confidence_decay_distance_cm=settings.localization_confidence_decay_distance_cm,
     confidence_decay_seconds=settings.localization_confidence_decay_seconds,
 )
+places = PlaceRecognizer(
+    occupancy_map,
+    lidar,
+    odometry,
+    localizer,
+    persistence_path=settings.place_anchor_path,
+    sectors=settings.place_descriptor_sectors,
+    max_range_cm=settings.place_descriptor_max_range_cm,
+    min_valid_sectors=settings.place_min_valid_sectors,
+    min_similarity=settings.place_min_similarity,
+    min_margin=settings.place_min_margin,
+    max_anchors=settings.place_max_anchors,
+    verify_search_xy_cm=settings.place_verify_search_xy_cm,
+    verify_search_heading_deg=settings.place_verify_search_heading_deg,
+)
 robot = RobotController(hardware, settings.max_motor_percent, awareness=awareness)
 navigator = SupervisedNavigator(
     robot=robot,
@@ -154,7 +175,9 @@ navigator = SupervisedNavigator(
 dock = DockingFoundation(
     odometry,
     navigator,
+    occupancy_map,
     approach_distance_cm=settings.dock_approach_distance_cm,
+    persistence_path=settings.dock_persistence_path,
 )
 
 
@@ -164,6 +187,8 @@ def live_robot_context() -> str:
     map_state = occupancy_map.status()
     nav = navigator.status()
     localization = localizer.status()
+    place_state = places.status()
+    dock_state = dock.status()
     return (
         f"{spatial} "
         f"Local odometry pose: x={odom.pose.x_cm:.1f} cm, y={odom.pose.y_cm:.1f} cm, "
@@ -174,6 +199,9 @@ def live_robot_context() -> str:
         f"{map_state.occupied_cells} occupied cells, {map_state.free_cells} free cells. "
         f"Localization: state={localization.state}, confidence={localization.confidence:.2f}, "
         f"ready={'yes' if localization.ready else 'no'}. "
+        f"Map identity: {map_state.map_id or 'none'} revision {map_state.revision}. "
+        f"Recognized-place anchors for this map: {place_state.anchor_count}. "
+        f"Dock valid for this map: {'yes' if dock_state.valid_for_current_map else 'no'}. "
         f"Navigation state: {nav.state}; {nav.reason or 'no active route'}."
     )
 
@@ -197,8 +225,15 @@ voice = OfflineVoiceAssistant(
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     if settings.map_auto_load:
-        occupancy_map.load()
-        localizer.invalidate("Persistent map loaded; live relocalization is required")
+        loaded = occupancy_map.load()
+        if loaded.success:
+            localizer.invalidate("Persistent map loaded; live relocalization is required")
+            if settings.enable_place_recognition:
+                places.load()
+            if settings.dock_auto_load:
+                dock.load()
+    elif settings.dock_auto_load:
+        dock.load()
     if settings.enable_odometry:
         odometry.start()
     if settings.enable_camera:
@@ -225,7 +260,7 @@ async def lifespan(_: FastAPI):
     hardware.close()
 
 
-app = FastAPI(title="Ribitics Robot", version="0.5.0", lifespan=lifespan)
+app = FastAPI(title="Ribitics Robot", version="0.6.0", lifespan=lifespan)
 static_dir = Path(__file__).resolve().parent.parent / "static"
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
@@ -257,6 +292,7 @@ def health() -> dict:
         "spatial": awareness.status().model_dump(),
         "odometry": odometry.status().model_dump(),
         "localization": localizer.status().model_dump(),
+        "places": places.status().model_dump(),
         "map": occupancy_map.status().model_dump(),
         "navigation": navigator.status().model_dump(),
         "dock": dock.status().model_dump(),
@@ -365,6 +401,8 @@ def map_load() -> MapPersistenceResult:
     result = occupancy_map.load()
     if result.success:
         localizer.invalidate("Persistent map loaded; relocalization is required")
+        places.load()
+        dock.load()
     return result
 
 
@@ -404,6 +442,7 @@ def map_clear() -> MapStatus:
     robot.stop()
     result = occupancy_map.clear()
     localizer.invalidate("Reference map was cleared")
+    places.invalidate_for_map_change()
     return result
 
 
@@ -434,6 +473,71 @@ def localization_relocalize(request: RelocalizeRequest) -> ScanMatchResult:
         navigator.cancel("Explicit relocalization requested")
     robot.stop()
     return localizer.relocalize(request)
+
+
+@app.get("/api/places/status", response_model=PlaceRecognitionStatus)
+def places_status() -> PlaceRecognitionStatus:
+    return places.status()
+
+
+@app.get("/api/places", response_model=list[PlaceAnchor])
+def places_list() -> list[PlaceAnchor]:
+    return places.list_anchors()
+
+
+@app.post(
+    "/api/places/capture",
+    response_model=PlaceAnchor,
+    dependencies=[Depends(require_control_token)],
+)
+def places_capture(request: PlaceAnchorCreate) -> PlaceAnchor:
+    if navigator.status().running:
+        navigator.cancel("Place anchor capture requested")
+    robot.stop()
+    try:
+        return places.capture_anchor(request.name)
+    except PlaceRecognitionError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@app.delete(
+    "/api/places/{anchor_id}",
+    dependencies=[Depends(require_control_token)],
+)
+def places_delete(anchor_id: str) -> dict:
+    return {"deleted": places.delete_anchor(anchor_id)}
+
+
+@app.post(
+    "/api/places/load",
+    response_model=PlaceRecognitionStatus,
+    dependencies=[Depends(require_control_token)],
+)
+def places_load() -> PlaceRecognitionStatus:
+    places.load()
+    return places.status()
+
+
+@app.post(
+    "/api/places/recognize",
+    response_model=PlaceRecognitionResult,
+    dependencies=[Depends(require_control_token)],
+)
+def places_recognize() -> PlaceRecognitionResult:
+    robot.stop()
+    return places.recognize()
+
+
+@app.post(
+    "/api/places/relocalize",
+    response_model=PlaceRecognitionResult,
+    dependencies=[Depends(require_control_token)],
+)
+def places_relocalize() -> PlaceRecognitionResult:
+    if navigator.status().running:
+        navigator.cancel("Place recognition relocalization requested")
+    robot.stop()
+    return places.recognize_and_relocalize()
 
 
 @app.get("/api/navigation/status", response_model=NavigationStatus)
@@ -497,6 +601,27 @@ def navigation_replan() -> NavigationPlan:
 @app.get("/api/dock/status", response_model=DockStatus)
 def dock_status() -> DockStatus:
     return dock.status()
+
+
+@app.post(
+    "/api/dock/load",
+    response_model=DockStatus,
+    dependencies=[Depends(require_control_token)],
+)
+def dock_load() -> DockStatus:
+    return dock.load()
+
+
+@app.delete(
+    "/api/dock",
+    response_model=DockStatus,
+    dependencies=[Depends(require_control_token)],
+)
+def dock_clear() -> DockStatus:
+    if navigator.status().running:
+        navigator.cancel("Dock configuration cleared")
+    robot.stop()
+    return dock.clear()
 
 
 @app.post(
