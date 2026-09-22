@@ -59,6 +59,23 @@ class Settings(BaseSettings):
     map_size_cm: float = 1200.0
     map_robot_radius_cm: float = 20.0
     mapping_poll_hz: float = 5.0
+    map_persistence_path: str = "data/ribitics-map.json"
+    map_auto_load: bool = False
+    map_auto_save: bool = False
+
+    enable_localization: bool = True
+    localization_poll_hz: float = 2.0
+    localization_search_xy_cm: float = 30.0
+    localization_search_heading_deg: float = 12.0
+    localization_xy_step_cm: float = 5.0
+    localization_heading_step_deg: float = 3.0
+    localization_min_points: int = 25
+    localization_min_confidence: float = 0.45
+    localization_nav_min_confidence: float = 0.55
+    localization_max_correction_cm: float = 35.0
+    localization_max_correction_deg: float = 15.0
+    localization_confidence_decay_distance_cm: float = 250.0
+    localization_confidence_decay_seconds: float = 20.0
 
     enable_supervised_navigation: bool = False
     navigation_allow_unknown: bool = False
@@ -76,6 +93,7 @@ class Settings(BaseSettings):
 
     def ensure_data_dir(self) -> None:
         Path(self.database_path).parent.mkdir(parents=True, exist_ok=True)
+        Path(self.map_persistence_path).parent.mkdir(parents=True, exist_ok=True)
 
 
 @lru_cache
