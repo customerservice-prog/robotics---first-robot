@@ -12,9 +12,13 @@ constexpr int ESTOP_SENSE_PIN = 9;   // auxiliary contact only; physical E-stop 
 constexpr int LEFT_ENC_A_PIN = 10;
 constexpr int RIGHT_ENC_A_PIN = 11;
 
-// Single-channel encoders cannot directly report direction. Until quadrature encoder
-// channels are wired, ticks are signed from the commanded wheel direction.
-// Verify encoder polarity and ticks-per-wheel-revolution before enabling hardware navigation.
+// Optional quadrature B channels. Keep false for the starter single-channel encoder wiring.
+// When enabled, direction comes from A/B phase instead of the commanded motor direction.
+constexpr bool ENABLE_QUADRATURE_ENCODERS = false;
+constexpr int LEFT_ENC_B_PIN = 16;
+constexpr int RIGHT_ENC_B_PIN = 17;
+
+// Flip either side if forward motion produces negative signed ticks after wiring/calibration.
 constexpr bool LEFT_ENCODER_INVERT = false;
 constexpr bool RIGHT_ENCODER_INVERT = false;
 
@@ -31,6 +35,8 @@ constexpr float FIRMWARE_STOP_DISTANCE_CM = 35.0f;
 
 constexpr int PWM_FREQ = 18000;
 constexpr int PWM_BITS = 8;
+constexpr int LEFT_PWM_CHANNEL = 0;
+constexpr int RIGHT_PWM_CHANNEL = 1;
 constexpr uint32_t COMMAND_TIMEOUT_MS = 750;
 constexpr uint32_t TELEMETRY_INTERVAL_MS = 250;
 constexpr uint32_t PROXIMITY_INTERVAL_MS = 80;
@@ -51,12 +57,21 @@ int tickSign(int command, bool invert) {
   return invert ? -sign : sign;
 }
 
+int IRAM_ATTR quadratureDelta(int bPin, bool invert) {
+  int delta = digitalRead(bPin) == HIGH ? -1 : 1;
+  return invert ? -delta : delta;
+}
+
 void IRAM_ATTR onLeftEncoder() {
-  leftTicks += tickSign(currentLeft, LEFT_ENCODER_INVERT);
+  leftTicks += ENABLE_QUADRATURE_ENCODERS
+    ? quadratureDelta(LEFT_ENC_B_PIN, LEFT_ENCODER_INVERT)
+    : tickSign(currentLeft, LEFT_ENCODER_INVERT);
 }
 
 void IRAM_ATTR onRightEncoder() {
-  rightTicks += tickSign(currentRight, RIGHT_ENCODER_INVERT);
+  rightTicks += ENABLE_QUADRATURE_ENCODERS
+    ? quadratureDelta(RIGHT_ENC_B_PIN, RIGHT_ENCODER_INVERT)
+    : tickSign(currentRight, RIGHT_ENCODER_INVERT);
 }
 
 bool estopActive() {
@@ -111,18 +126,18 @@ bool commandMovesForward(int left, int right) {
   return ((left + right) / 2.0f) > 0.0f;
 }
 
-void setMotor(int percent, int pwmPin, int dirPin) {
+void setMotor(int percent, int pwmChannel, int dirPin) {
   percent = constrain(percent, -100, 100);
   digitalWrite(dirPin, percent >= 0 ? HIGH : LOW);
   int duty = map(abs(percent), 0, 100, 0, 255);
-  ledcWrite(pwmPin, duty);
+  ledcWrite(pwmChannel, duty);
 }
 
 void stopMotors() {
   currentLeft = 0;
   currentRight = 0;
-  ledcWrite(LEFT_PWM_PIN, 0);
-  ledcWrite(RIGHT_PWM_PIN, 0);
+  ledcWrite(LEFT_PWM_CHANNEL, 0);
+  ledcWrite(RIGHT_PWM_CHANNEL, 0);
 }
 
 void applyDrive(int left, int right) {
@@ -138,8 +153,8 @@ void applyDrive(int left, int right) {
 
   currentLeft = requestedLeft;
   currentRight = requestedRight;
-  setMotor(currentLeft, LEFT_PWM_PIN, LEFT_DIR_PIN);
-  setMotor(currentRight, RIGHT_PWM_PIN, RIGHT_DIR_PIN);
+  setMotor(currentLeft, LEFT_PWM_CHANNEL, LEFT_DIR_PIN);
+  setMotor(currentRight, RIGHT_PWM_CHANNEL, RIGHT_DIR_PIN);
 }
 
 void sendTelemetry() {
@@ -148,7 +163,9 @@ void sendTelemetry() {
   doc["estop"] = estopActive();
   doc["left_ticks"] = leftTicks;
   doc["right_ticks"] = rightTicks;
-  doc["encoder_direction_mode"] = "command_signed_single_channel";
+  doc["encoder_direction_mode"] = ENABLE_QUADRATURE_ENCODERS
+    ? "quadrature_a_rising_b_direction"
+    : "command_signed_single_channel";
   doc["left"] = currentLeft;
   doc["right"] = currentRight;
   doc["front_bumper_left"] = frontBumperLeft;
@@ -167,6 +184,10 @@ void setup() {
   pinMode(ESTOP_SENSE_PIN, INPUT_PULLUP);
   pinMode(LEFT_ENC_A_PIN, INPUT_PULLUP);
   pinMode(RIGHT_ENC_A_PIN, INPUT_PULLUP);
+  if (ENABLE_QUADRATURE_ENCODERS) {
+    pinMode(LEFT_ENC_B_PIN, INPUT_PULLUP);
+    pinMode(RIGHT_ENC_B_PIN, INPUT_PULLUP);
+  }
 
   if (ENABLE_FRONT_BUMPERS) {
     pinMode(FRONT_BUMPER_LEFT_PIN, INPUT_PULLUP);
@@ -177,8 +198,10 @@ void setup() {
     pinMode(FRONT_ULTRASONIC_ECHO_PIN, INPUT);
   }
 
-  ledcAttach(LEFT_PWM_PIN, PWM_FREQ, PWM_BITS);
-  ledcAttach(RIGHT_PWM_PIN, PWM_FREQ, PWM_BITS);
+  ledcSetup(LEFT_PWM_CHANNEL, PWM_FREQ, PWM_BITS);
+  ledcSetup(RIGHT_PWM_CHANNEL, PWM_FREQ, PWM_BITS);
+  ledcAttachPin(LEFT_PWM_PIN, LEFT_PWM_CHANNEL);
+  ledcAttachPin(RIGHT_PWM_PIN, RIGHT_PWM_CHANNEL);
   attachInterrupt(digitalPinToInterrupt(LEFT_ENC_A_PIN), onLeftEncoder, RISING);
   attachInterrupt(digitalPinToInterrupt(RIGHT_ENC_A_PIN), onRightEncoder, RISING);
   stopMotors();

@@ -149,8 +149,48 @@ class OdometryStatus(BaseModel):
     linear_velocity_cm_s: float = 0.0
     angular_velocity_deg_s: float = 0.0
     distance_traveled_cm: float = 0.0
+    correction_count: int = 0
+    last_correction_at: datetime | None = None
     last_update_at: datetime | None = None
     last_error: str = ""
+
+
+class ScanMatchResult(BaseModel):
+    matched: bool
+    confidence: float = 0.0
+    pose: Pose2D = Field(default_factory=Pose2D)
+    initial_pose: Pose2D = Field(default_factory=Pose2D)
+    correction_x_cm: float = 0.0
+    correction_y_cm: float = 0.0
+    correction_heading_deg: float = 0.0
+    points_used: int = 0
+    hit_points: int = 0
+    best_score: float = 0.0
+    second_best_score: float = 0.0
+    reason: str = ""
+
+
+class LocalizationStatus(BaseModel):
+    running: bool
+    ready: bool
+    state: str = "odometry_only"
+    confidence: float = 0.0
+    pose: Pose2D = Field(default_factory=Pose2D)
+    last_match_confidence: float = 0.0
+    last_match_at: datetime | None = None
+    correction_count: int = 0
+    distance_since_correction_cm: float = 0.0
+    last_correction_x_cm: float = 0.0
+    last_correction_y_cm: float = 0.0
+    last_correction_heading_deg: float = 0.0
+    map_loaded_from_disk: bool = False
+    last_error: str = ""
+
+
+class RelocalizeRequest(BaseModel):
+    hint_pose: Pose2D | None = None
+    search_xy_cm: float | None = Field(default=None, ge=5.0, le=300.0)
+    search_heading_deg: float | None = Field(default=None, ge=3.0, le=90.0)
 
 
 class MapCell(BaseModel):
@@ -166,6 +206,12 @@ class MapStatus(BaseModel):
     updates: int = 0
     free_cells: int = 0
     occupied_cells: int = 0
+    dirty: bool = False
+    learning_enabled: bool = True
+    loaded_from_disk: bool = False
+    persistence_path: str = ""
+    last_saved_at: datetime | None = None
+    last_loaded_at: datetime | None = None
     last_update_at: datetime | None = None
     last_error: str = ""
 
@@ -176,6 +222,18 @@ class MapSnapshot(BaseModel):
     occupied: list[MapCell] = Field(default_factory=list)
     robot_pose: Pose2D = Field(default_factory=Pose2D)
     captured_at: datetime | None = None
+
+
+class MapLearningRequest(BaseModel):
+    enabled: bool
+
+
+class MapPersistenceResult(BaseModel):
+    success: bool
+    action: str
+    path: str
+    cell_count: int = 0
+    reason: str = ""
 
 
 class NavigationGoal(BaseModel):
@@ -205,6 +263,7 @@ class NavigationStatus(BaseModel):
     waypoint_count: int = 0
     planned_distance_cm: float = 0.0
     distance_remaining_cm: float | None = None
+    localization_confidence: float | None = None
     started_at: datetime | None = None
     last_update_at: datetime | None = None
     last_error: str = ""
