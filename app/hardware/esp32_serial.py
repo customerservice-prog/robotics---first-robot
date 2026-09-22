@@ -65,6 +65,12 @@ class ESP32SerialHardware(RobotHardware):
         self._send({"cmd": "stop"})
         self._last_message = "Stop command sent"
 
+    def reset_encoders(self) -> None:
+        self._send({"cmd": "reset_encoders"})
+        self._telemetry["left_ticks"] = 0
+        self._telemetry["right_ticks"] = 0
+        self._last_message = "Encoder reset command sent"
+
     def status(self) -> RobotStatus:
         connected = bool(self._serial and self._serial.is_open)
         return RobotStatus(
@@ -78,6 +84,7 @@ class ESP32SerialHardware(RobotHardware):
             battery_voltage=self._telemetry.get("battery_voltage"),
             left_ticks=self._telemetry.get("left_ticks"),
             right_ticks=self._telemetry.get("right_ticks"),
+            encoder_direction_mode=str(self._telemetry.get("encoder_direction_mode", "")),
             front_distance_cm=self._telemetry.get("front_distance_cm"),
             left_distance_cm=self._telemetry.get("left_distance_cm"),
             right_distance_cm=self._telemetry.get("right_distance_cm"),
