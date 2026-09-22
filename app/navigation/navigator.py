@@ -146,6 +146,21 @@ class SupervisedNavigator:
         self._thread.start()
         return self.status()
 
+    def replan_current_goal(self) -> NavigationPlan:
+        with self._lock:
+            goal = self._goal
+        if goal is None:
+            raise NavigationError("No navigation goal is available to recover")
+        self.robot.stop()
+        plan = self.plan(goal)
+        if not plan.found:
+            raise NavigationError(plan.reason or "No recovery route was found")
+        with self._lock:
+            self._state = "replanned"
+            self._reason = "Recovery route replanned; operator must explicitly start it"
+            self._last_update_at = datetime.now(timezone.utc)
+        return plan
+
     def cancel(self, reason: str = "Navigation cancelled") -> NavigationStatus:
         self._cancel_event.set()
         self.robot.stop()
@@ -185,6 +200,7 @@ class SupervisedNavigator:
                 started_at=self._started_at,
                 last_update_at=self._last_update_at,
                 last_error=self._last_error,
+                recovery_available=self._state == "blocked" and goal is not None,
             )
 
     def current_plan(self) -> NavigationPlan | None:
@@ -221,7 +237,7 @@ class SupervisedNavigator:
                         self.robot.stop()
                         self._finish(
                             "blocked",
-                            f"Navigation stopped by spatial safety: {spatial.reason}",
+                            f"Navigation stopped by spatial safety: {spatial.reason}. Replan is available after the hazard/map changes.",
                         )
                         return
 
@@ -251,7 +267,7 @@ class SupervisedNavigator:
                         self.robot.drive(linear, angular)
                     except UnsafeDriveError as exc:
                         self.robot.stop()
-                        self._finish("blocked", f"Drive safety rejected route: {exc}")
+                        self._finish("blocked", f"Drive safety rejected route: {exc}. Replan is available after the hazard/map changes.")
                         return
 
                     with self._lock:
