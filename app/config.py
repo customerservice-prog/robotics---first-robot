@@ -45,6 +45,30 @@ class Settings(BaseSettings):
     obstacle_warn_cm: float = 70.0
     require_proximity_for_forward: bool = False
 
+    enable_odometry: bool = True
+    odometry_calibrated: bool = False
+    wheel_diameter_cm: float = 6.5
+    wheel_base_cm: float = 15.0
+    encoder_ticks_per_revolution: float = 360.0
+    odometry_poll_hz: float = 20.0
+    odometry_stale_seconds: float = 1.0
+    simulation_encoder_ticks_per_second: float = 360.0
+
+    enable_mapping: bool = True
+    map_resolution_cm: float = 5.0
+    map_size_cm: float = 1200.0
+    map_robot_radius_cm: float = 20.0
+    mapping_poll_hz: float = 5.0
+
+    enable_supervised_navigation: bool = False
+    navigation_allow_unknown: bool = False
+    navigation_max_goal_distance_cm: float = 500.0
+    navigation_max_linear: float = 0.22
+    navigation_max_angular: float = 0.28
+    navigation_waypoint_tolerance_cm: float = 12.0
+    navigation_heading_tolerance_deg: float = 12.0
+    navigation_timeout_seconds: float = 120.0
+
     max_motor_percent: int = 65
     control_token: str = "change-me-before-network-use"
 
