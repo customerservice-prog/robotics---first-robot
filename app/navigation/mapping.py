@@ -116,13 +116,34 @@ class LocalOccupancyMap:
             self._last_error = ""
         return True
 
+    def add_virtual_obstacle(self, x_cm: float, y_cm: float, radius_cm: float) -> MapStatus:
+        center = self.world_to_cell(x_cm, y_cm)
+        if center is None:
+            raise ValueError("Virtual obstacle is outside the configured local map")
+        radius_cells = max(1, int(math.ceil(radius_cm / self.resolution_cm)))
+        origin = self.world_to_cell(0.0, 0.0)
+        with self._lock:
+            if origin is not None:
+                self._scores[origin] = min(-3, self._scores.get(origin, 0) - 3)
+            for dx in range(-radius_cells, radius_cells + 1):
+                for dy in range(-radius_cells, radius_cells + 1):
+                    if dx * dx + dy * dy > radius_cells * radius_cells:
+                        continue
+                    cell = (center[0] + dx, center[1] + dy)
+                    if self.in_bounds(cell):
+                        self._scores[cell] = 5
+            self._updates += 1
+            self._last_update_at = datetime.now(timezone.utc)
+            self._last_error = ""
+        return self.status()
+
     def status(self) -> MapStatus:
         with self._lock:
             free = sum(1 for score in self._scores.values() if score <= -1)
             occupied = sum(1 for score in self._scores.values() if score >= 2)
             return MapStatus(
                 running=self._running,
-                ready=self._updates > 0 and free > 0,
+                ready=self._updates > 0 and (free > 0 or occupied > 0),
                 resolution_cm=self.resolution_cm,
                 size_cm=self.size_cm,
                 updates=self._updates,
