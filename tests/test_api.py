@@ -11,6 +11,10 @@ def test_health_and_status():
         assert health['camera']['running'] is False
         assert health['lidar']['running'] is False
         assert 'spatial' in health
+        assert 'odometry' in health
+        assert 'map' in health
+        assert 'navigation' in health
+        assert 'dock' in health
         status = client.get('/api/status').json()
         assert status['connected'] is True
         assert status['mode'] == 'simulation'
@@ -131,3 +135,35 @@ def test_operator_stop_cancels_simulated_navigation():
         nav = client.get('/api/navigation/status').json()
         assert nav['running'] is False
         assert nav['state'] == 'cancelled'
+
+
+
+def test_recovery_replan_and_dock_foundation():
+    with TestClient(app) as client:
+        client.post('/api/map/clear')
+        client.post(
+            '/api/odometry/reset',
+            json={'x_cm': 0, 'y_cm': 0, 'heading_deg': 0},
+        )
+
+        dock = client.post('/api/dock/set-current')
+        assert dock.status_code == 200
+        dock_data = dock.json()
+        assert dock_data['configured'] is True
+        assert dock_data['approach_goal']['x_cm'] == -60
+        assert dock_data['approach_goal']['y_cm'] == 0
+
+        dock_plan = client.post('/api/dock/plan-return')
+        assert dock_plan.status_code == 200
+        assert dock_plan.json()['found'] is True
+
+        client.post(
+            '/api/navigation/plan',
+            json={'x_cm': 100, 'y_cm': 40},
+        )
+        replanned = client.post('/api/navigation/replan')
+        assert replanned.status_code == 200
+        assert replanned.json()['found'] is True
+        nav = client.get('/api/navigation/status').json()
+        assert nav['state'] == 'replanned'
+        assert nav['running'] is False
