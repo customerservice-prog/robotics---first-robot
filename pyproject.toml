@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "ribitics-robot"
-version = "0.3.0"
-description = "Upgradeable local-first robot brain, voice, vision, LiDAR, spatial safety, memory, and ESP32 motor bridge."
+version = "0.4.0"
+description = "Local-first robot brain with voice, vision, LiDAR, odometry, mapping, supervised navigation, memory, and ESP32 motor control."
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
