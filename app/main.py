@@ -24,6 +24,7 @@ from app.models import (
     OdometryStatus,
     Pose2D,
     RobotStatus,
+    SimulationMapObstacle,
     SimulationSensors,
     SpatialStatus,
     VoiceStatus,
@@ -256,6 +257,21 @@ def simulation_sensors(sensors: SimulationSensors) -> SpatialStatus:
         raise HTTPException(status_code=409, detail="Sensor simulation is only available in simulation mode")
     hardware.set_sensors(sensors)
     return awareness.status()
+
+
+@app.post(
+    "/api/simulation/map-obstacle",
+    response_model=MapStatus,
+    dependencies=[Depends(require_control_token)],
+)
+def simulation_map_obstacle(obstacle: SimulationMapObstacle) -> MapStatus:
+    if not isinstance(hardware, SimulatedHardware):
+        raise HTTPException(status_code=409, detail="Map simulation is only available in simulation mode")
+    return occupancy_map.add_virtual_obstacle(
+        obstacle.x_cm,
+        obstacle.y_cm,
+        obstacle.radius_cm,
+    )
 
 
 @app.get("/api/odometry/status", response_model=OdometryStatus)
