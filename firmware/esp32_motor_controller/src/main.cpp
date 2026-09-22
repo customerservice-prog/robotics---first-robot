@@ -12,6 +12,12 @@ constexpr int ESTOP_SENSE_PIN = 9;   // auxiliary contact only; physical E-stop 
 constexpr int LEFT_ENC_A_PIN = 10;
 constexpr int RIGHT_ENC_A_PIN = 11;
 
+// Single-channel encoders cannot directly report direction. Until quadrature encoder
+// channels are wired, ticks are signed from the commanded wheel direction.
+// Verify encoder polarity and ticks-per-wheel-revolution before enabling hardware navigation.
+constexpr bool LEFT_ENCODER_INVERT = false;
+constexpr bool RIGHT_ENCODER_INVERT = false;
+
 // Optional V1.5 front-safety inputs. They are OFF by default so unverified pins cannot
 // affect a new build. Verify your board and wiring before changing either flag to true.
 constexpr bool ENABLE_FRONT_BUMPERS = false;
@@ -31,17 +37,27 @@ constexpr uint32_t PROXIMITY_INTERVAL_MS = 80;
 
 volatile long leftTicks = 0;
 volatile long rightTicks = 0;
+volatile int currentLeft = 0;
+volatile int currentRight = 0;
 uint32_t lastCommandMs = 0;
 uint32_t lastTelemetryMs = 0;
 uint32_t lastProximityMs = 0;
-int currentLeft = 0;
-int currentRight = 0;
 bool frontBumperLeft = false;
 bool frontBumperRight = false;
 float frontDistanceCm = NAN;
 
-void IRAM_ATTR onLeftEncoder() { leftTicks++; }
-void IRAM_ATTR onRightEncoder() { rightTicks++; }
+int tickSign(int command, bool invert) {
+  int sign = command > 0 ? 1 : (command < 0 ? -1 : 0);
+  return invert ? -sign : sign;
+}
+
+void IRAM_ATTR onLeftEncoder() {
+  leftTicks += tickSign(currentLeft, LEFT_ENCODER_INVERT);
+}
+
+void IRAM_ATTR onRightEncoder() {
+  rightTicks += tickSign(currentRight, RIGHT_ENCODER_INVERT);
+}
 
 bool estopActive() {
   return digitalRead(ESTOP_SENSE_PIN) == LOW;
@@ -132,6 +148,7 @@ void sendTelemetry() {
   doc["estop"] = estopActive();
   doc["left_ticks"] = leftTicks;
   doc["right_ticks"] = rightTicks;
+  doc["encoder_direction_mode"] = "command_signed_single_channel";
   doc["left"] = currentLeft;
   doc["right"] = currentRight;
   doc["front_bumper_left"] = frontBumperLeft;
@@ -183,6 +200,12 @@ void loop() {
         lastCommandMs = millis();
       } else if (strcmp(cmd, "stop") == 0) {
         stopMotors();
+        lastCommandMs = millis();
+      } else if (strcmp(cmd, "reset_encoders") == 0) {
+        noInterrupts();
+        leftTicks = 0;
+        rightTicks = 0;
+        interrupts();
         lastCommandMs = millis();
       }
     }
