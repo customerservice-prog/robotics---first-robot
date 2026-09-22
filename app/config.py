@@ -34,6 +34,13 @@ class Settings(BaseSettings):
     camera_jpeg_quality: int = 80
     camera_motion_threshold: float = 12.0
 
+    enable_lidar: bool = False
+    lidar_model: str = "RPLIDAR-A1"
+    lidar_port: str = "/dev/ttyUSB0"
+    lidar_forward_angle_deg: float = 0.0
+    lidar_front_arc_deg: float = 35.0
+    lidar_max_distance_mm: float = 6000.0
+
     obstacle_stop_cm: float = 35.0
     obstacle_warn_cm: float = 70.0
     require_proximity_for_forward: bool = False
