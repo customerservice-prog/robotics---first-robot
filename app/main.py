@@ -12,6 +12,8 @@ from app.models import (
     ChatRequest,
     ChatResponse,
     DriveCommand,
+    LidarScan,
+    LidarStatus,
     MemoryCreate,
     MemoryRecord,
     RobotStatus,
@@ -20,6 +22,7 @@ from app.models import (
     VoiceStatus,
 )
 from app.perception.camera import CameraService
+from app.perception.lidar import LidarService
 from app.perception.spatial import SpatialAwareness
 from app.robot import RobotController, UnsafeDriveError
 from app.services.conversation import ConversationService
@@ -48,11 +51,20 @@ camera = CameraService(
     jpeg_quality=settings.camera_jpeg_quality,
     motion_threshold=settings.camera_motion_threshold,
 )
+lidar = LidarService(
+    auto_start=settings.enable_lidar,
+    model=settings.lidar_model,
+    port=settings.lidar_port,
+    forward_angle_deg=settings.lidar_forward_angle_deg,
+    front_arc_deg=settings.lidar_front_arc_deg,
+    max_distance_mm=settings.lidar_max_distance_mm,
+)
 awareness = SpatialAwareness(
     hardware,
     stop_cm=settings.obstacle_stop_cm,
     warn_cm=settings.obstacle_warn_cm,
     require_proximity_for_forward=settings.require_proximity_for_forward,
+    lidar=lidar,
 )
 
 
@@ -81,10 +93,13 @@ robot = RobotController(hardware, settings.max_motor_percent, awareness=awarenes
 async def lifespan(_: FastAPI):
     if settings.enable_camera:
         camera.start()
+    if settings.enable_lidar:
+        lidar.start()
     if settings.enable_voice_loop:
         voice.start()
     yield
     camera.stop()
+    lidar.stop()
     voice.stop()
     hardware.close()
 
@@ -117,6 +132,7 @@ def health() -> dict:
         "mode": settings.mode,
         "voice": voice.status().model_dump(),
         "camera": camera.status().model_dump(),
+        "lidar": lidar.status().model_dump(),
         "spatial": awareness.status().model_dump(),
     }
 
@@ -221,6 +237,38 @@ def camera_snapshot() -> Response:
         media_type="image/jpeg",
         headers={"Cache-Control": "no-store, max-age=0"},
     )
+
+
+@app.get("/api/lidar/status", response_model=LidarStatus)
+def lidar_status() -> LidarStatus:
+    return lidar.status()
+
+
+@app.post(
+    "/api/lidar/start",
+    response_model=LidarStatus,
+    dependencies=[Depends(require_control_token)],
+)
+def lidar_start() -> LidarStatus:
+    return lidar.start()
+
+
+@app.post(
+    "/api/lidar/stop",
+    response_model=LidarStatus,
+    dependencies=[Depends(require_control_token)],
+)
+def lidar_stop() -> LidarStatus:
+    return lidar.stop()
+
+
+@app.get(
+    "/api/lidar/scan",
+    response_model=LidarScan,
+    dependencies=[Depends(require_control_token)],
+)
+def lidar_scan() -> LidarScan:
+    return lidar.scan()
 
 
 @app.get("/api/memories", response_model=list[MemoryRecord])
