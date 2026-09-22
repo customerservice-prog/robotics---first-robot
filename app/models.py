@@ -32,6 +32,12 @@ class MemoryRecord(BaseModel):
     created_at: datetime
 
 
+class Pose2D(BaseModel):
+    x_cm: float = 0.0
+    y_cm: float = 0.0
+    heading_deg: float = 0.0
+
+
 class RobotStatus(BaseModel):
     name: str
     mode: str
@@ -43,6 +49,7 @@ class RobotStatus(BaseModel):
     battery_voltage: float | None = None
     left_ticks: int | None = None
     right_ticks: int | None = None
+    encoder_direction_mode: str = ""
     front_distance_cm: float | None = None
     left_distance_cm: float | None = None
     right_distance_cm: float | None = None
@@ -127,6 +134,91 @@ class SpatialStatus(BaseModel):
     lidar_min_distance_cm: float | None = None
 
 
+class OdometryStatus(BaseModel):
+    running: bool
+    ready: bool
+    calibrated: bool
+    stale: bool
+    source: str = "encoder_dead_reckoning"
+    pose: Pose2D = Field(default_factory=Pose2D)
+    left_ticks: int | None = None
+    right_ticks: int | None = None
+    wheel_diameter_cm: float
+    wheel_base_cm: float
+    ticks_per_revolution: float
+    linear_velocity_cm_s: float = 0.0
+    angular_velocity_deg_s: float = 0.0
+    distance_traveled_cm: float = 0.0
+    last_update_at: datetime | None = None
+    last_error: str = ""
+
+
+class MapCell(BaseModel):
+    x_cm: float
+    y_cm: float
+
+
+class MapStatus(BaseModel):
+    running: bool
+    ready: bool
+    resolution_cm: float
+    size_cm: float
+    updates: int = 0
+    free_cells: int = 0
+    occupied_cells: int = 0
+    last_update_at: datetime | None = None
+    last_error: str = ""
+
+
+class MapSnapshot(BaseModel):
+    resolution_cm: float
+    size_cm: float
+    occupied: list[MapCell] = Field(default_factory=list)
+    robot_pose: Pose2D = Field(default_factory=Pose2D)
+    captured_at: datetime | None = None
+
+
+class NavigationGoal(BaseModel):
+    x_cm: float
+    y_cm: float
+    heading_deg: float | None = None
+
+
+class NavigationPlan(BaseModel):
+    found: bool
+    reason: str = ""
+    goal: NavigationGoal
+    waypoints: list[Pose2D] = Field(default_factory=list)
+    planned_distance_cm: float = 0.0
+    cells_explored: int = 0
+    uses_unknown_space: bool = False
+
+
+class NavigationStatus(BaseModel):
+    enabled: bool
+    hardware_execution_allowed: bool
+    running: bool
+    state: str = "idle"
+    reason: str = ""
+    goal: NavigationGoal | None = None
+    waypoint_index: int = 0
+    waypoint_count: int = 0
+    planned_distance_cm: float = 0.0
+    distance_remaining_cm: float | None = None
+    started_at: datetime | None = None
+    last_update_at: datetime | None = None
+    last_error: str = ""
+    recovery_available: bool = False
+
+
+class DockStatus(BaseModel):
+    configured: bool
+    dock_pose: Pose2D | None = None
+    approach_goal: NavigationGoal | None = None
+    distance_to_dock_cm: float | None = None
+    reason: str = ""
+
+
 class SimulationSensors(BaseModel):
     front_distance_cm: float | None = Field(default=None, ge=0, le=10000)
     left_distance_cm: float | None = Field(default=None, ge=0, le=10000)
@@ -135,3 +227,9 @@ class SimulationSensors(BaseModel):
     front_bumper_right: bool = False
     lidar_connected: bool = False
     lidar_min_distance_cm: float | None = Field(default=None, ge=0, le=10000)
+
+
+class SimulationMapObstacle(BaseModel):
+    x_cm: float
+    y_cm: float
+    radius_cm: float = Field(default=20.0, ge=5.0, le=200.0)

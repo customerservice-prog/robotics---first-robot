@@ -16,5 +16,9 @@ class RobotHardware(ABC):
     def status(self) -> RobotStatus:
         raise NotImplementedError
 
+    def reset_encoders(self) -> None:
+        """Optional encoder reset hook. Odometry can also re-baseline without resetting hardware."""
+        pass
+
     def close(self) -> None:
         pass

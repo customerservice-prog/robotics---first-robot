@@ -11,15 +11,32 @@ from app.models import (
     CameraStatus,
     ChatRequest,
     ChatResponse,
+    DockStatus,
     DriveCommand,
     LidarScan,
     LidarStatus,
+    MapSnapshot,
+    MapStatus,
     MemoryCreate,
     MemoryRecord,
+    NavigationGoal,
+    NavigationPlan,
+    NavigationStatus,
+    OdometryStatus,
+    Pose2D,
     RobotStatus,
+    SimulationMapObstacle,
     SimulationSensors,
     SpatialStatus,
     VoiceStatus,
+)
+from app.navigation import (
+    AStarPlanner,
+    DifferentialOdometry,
+    DockingFoundation,
+    LocalOccupancyMap,
+    NavigationError,
+    SupervisedNavigator,
 )
 from app.perception.camera import CameraService
 from app.perception.lidar import LidarService
@@ -40,7 +57,10 @@ if settings.mode.lower() == "esp32":
 
     hardware = ESP32SerialHardware(settings.name, settings.serial_port, settings.serial_baud)
 else:
-    hardware = SimulatedHardware(settings.name)
+    hardware = SimulatedHardware(
+        settings.name,
+        ticks_per_second_at_full_power=settings.simulation_encoder_ticks_per_second,
+    )
 
 camera = CameraService(
     auto_start=settings.enable_camera,
@@ -66,10 +86,68 @@ awareness = SpatialAwareness(
     require_proximity_for_forward=settings.require_proximity_for_forward,
     lidar=lidar,
 )
+odometry = DifferentialOdometry(
+    hardware,
+    wheel_diameter_cm=settings.wheel_diameter_cm,
+    wheel_base_cm=settings.wheel_base_cm,
+    ticks_per_revolution=settings.encoder_ticks_per_revolution,
+    poll_hz=settings.odometry_poll_hz,
+    stale_seconds=settings.odometry_stale_seconds,
+    calibrated=settings.odometry_calibrated,
+)
+occupancy_map = LocalOccupancyMap(
+    lidar,
+    odometry,
+    resolution_cm=settings.map_resolution_cm,
+    size_cm=settings.map_size_cm,
+    robot_radius_cm=settings.map_robot_radius_cm,
+    poll_hz=settings.mapping_poll_hz,
+)
+planner = AStarPlanner(
+    occupancy_map,
+    robot_radius_cm=settings.map_robot_radius_cm,
+    allow_unknown=settings.navigation_allow_unknown,
+)
+robot = RobotController(hardware, settings.max_motor_percent, awareness=awareness)
+navigator = SupervisedNavigator(
+    robot=robot,
+    odometry=odometry,
+    occupancy_map=occupancy_map,
+    planner=planner,
+    awareness=awareness,
+    lidar=lidar,
+    hardware_mode=hardware.status().mode,
+    hardware_execution_enabled=settings.enable_supervised_navigation,
+    allow_unknown=settings.navigation_allow_unknown,
+    max_goal_distance_cm=settings.navigation_max_goal_distance_cm,
+    max_linear=settings.navigation_max_linear,
+    max_angular=settings.navigation_max_angular,
+    waypoint_tolerance_cm=settings.navigation_waypoint_tolerance_cm,
+    heading_tolerance_deg=settings.navigation_heading_tolerance_deg,
+    timeout_seconds=settings.navigation_timeout_seconds,
+)
+dock = DockingFoundation(
+    odometry,
+    navigator,
+    approach_distance_cm=settings.dock_approach_distance_cm,
+)
 
 
 def live_robot_context() -> str:
-    return awareness.context_text(camera.status())
+    spatial = awareness.context_text(camera.status())
+    odom = odometry.status()
+    map_state = occupancy_map.status()
+    nav = navigator.status()
+    return (
+        f"{spatial} "
+        f"Local odometry pose: x={odom.pose.x_cm:.1f} cm, y={odom.pose.y_cm:.1f} cm, "
+        f"heading={odom.pose.heading_deg:.1f} degrees; "
+        f"odometry ready={'yes' if odom.ready and not odom.stale else 'no'}, "
+        f"calibrated={'yes' if odom.calibrated else 'no'}. "
+        f"Local occupancy map: ready={'yes' if map_state.ready else 'no'}, "
+        f"{map_state.occupied_cells} occupied cells, {map_state.free_cells} free cells. "
+        f"Navigation state: {nav.state}; {nav.reason or 'no active route'}."
+    )
 
 
 conversation = ConversationService(memory, llm, context_provider=live_robot_context)
@@ -86,25 +164,32 @@ voice = OfflineVoiceAssistant(
     block_size=settings.voice_block_size,
     command_timeout_seconds=settings.voice_command_timeout_seconds,
 )
-robot = RobotController(hardware, settings.max_motor_percent, awareness=awareness)
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    if settings.enable_odometry:
+        odometry.start()
     if settings.enable_camera:
         camera.start()
     if settings.enable_lidar:
         lidar.start()
+    if settings.enable_mapping:
+        occupancy_map.start()
     if settings.enable_voice_loop:
         voice.start()
     yield
+    if navigator.status().running:
+        navigator.cancel("Application shutting down")
+    occupancy_map.stop()
+    odometry.stop()
     camera.stop()
     lidar.stop()
     voice.stop()
     hardware.close()
 
 
-app = FastAPI(title="Ribitics Robot", version="0.3.0", lifespan=lifespan)
+app = FastAPI(title="Ribitics Robot", version="0.4.0", lifespan=lifespan)
 static_dir = Path(__file__).resolve().parent.parent / "static"
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
@@ -134,6 +219,10 @@ def health() -> dict:
         "camera": camera.status().model_dump(),
         "lidar": lidar.status().model_dump(),
         "spatial": awareness.status().model_dump(),
+        "odometry": odometry.status().model_dump(),
+        "map": occupancy_map.status().model_dump(),
+        "navigation": navigator.status().model_dump(),
+        "dock": dock.status().model_dump(),
     }
 
 
@@ -149,6 +238,8 @@ def spatial_status() -> SpatialStatus:
 
 @app.post("/api/drive", dependencies=[Depends(require_control_token)])
 def drive(command: DriveCommand) -> RobotStatus:
+    if navigator.status().running:
+        navigator.cancel("Manual drive took control")
     try:
         robot.drive(command.linear, command.angular)
     except UnsafeDriveError as exc:
@@ -158,6 +249,8 @@ def drive(command: DriveCommand) -> RobotStatus:
 
 @app.post("/api/stop", dependencies=[Depends(require_control_token)])
 def stop() -> RobotStatus:
+    if navigator.status().running:
+        navigator.cancel("Operator STOP")
     robot.stop()
     return hardware.status()
 
@@ -172,6 +265,172 @@ def simulation_sensors(sensors: SimulationSensors) -> SpatialStatus:
         raise HTTPException(status_code=409, detail="Sensor simulation is only available in simulation mode")
     hardware.set_sensors(sensors)
     return awareness.status()
+
+
+@app.post(
+    "/api/simulation/map-obstacle",
+    response_model=MapStatus,
+    dependencies=[Depends(require_control_token)],
+)
+def simulation_map_obstacle(obstacle: SimulationMapObstacle) -> MapStatus:
+    if not isinstance(hardware, SimulatedHardware):
+        raise HTTPException(status_code=409, detail="Map simulation is only available in simulation mode")
+    return occupancy_map.add_virtual_obstacle(
+        obstacle.x_cm,
+        obstacle.y_cm,
+        obstacle.radius_cm,
+    )
+
+
+@app.get("/api/odometry/status", response_model=OdometryStatus)
+def odometry_status() -> OdometryStatus:
+    return odometry.status()
+
+
+@app.post(
+    "/api/odometry/reset",
+    response_model=OdometryStatus,
+    dependencies=[Depends(require_control_token)],
+)
+def odometry_reset(pose: Pose2D) -> OdometryStatus:
+    if navigator.status().running:
+        navigator.cancel("Odometry reset by operator")
+    robot.stop()
+    return odometry.reset(pose)
+
+
+@app.get("/api/map/status", response_model=MapStatus)
+def map_status() -> MapStatus:
+    return occupancy_map.status()
+
+
+@app.get(
+    "/api/map/snapshot",
+    response_model=MapSnapshot,
+    dependencies=[Depends(require_control_token)],
+)
+def map_snapshot() -> MapSnapshot:
+    return occupancy_map.snapshot()
+
+
+@app.post(
+    "/api/map/clear",
+    response_model=MapStatus,
+    dependencies=[Depends(require_control_token)],
+)
+def map_clear() -> MapStatus:
+    if navigator.status().running:
+        navigator.cancel("Map cleared by operator")
+    robot.stop()
+    return occupancy_map.clear()
+
+
+@app.get("/api/navigation/status", response_model=NavigationStatus)
+def navigation_status() -> NavigationStatus:
+    return navigator.status()
+
+
+@app.get("/api/navigation/plan", response_model=NavigationPlan)
+def navigation_current_plan() -> NavigationPlan:
+    plan = navigator.current_plan()
+    if plan is None:
+        raise HTTPException(status_code=404, detail="No route has been planned")
+    return plan
+
+
+@app.post(
+    "/api/navigation/plan",
+    response_model=NavigationPlan,
+    dependencies=[Depends(require_control_token)],
+)
+def navigation_plan(goal: NavigationGoal) -> NavigationPlan:
+    try:
+        return navigator.plan(goal)
+    except NavigationError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@app.post(
+    "/api/navigation/start",
+    response_model=NavigationStatus,
+    dependencies=[Depends(require_control_token)],
+)
+def navigation_start(goal: NavigationGoal) -> NavigationStatus:
+    try:
+        return navigator.start(goal)
+    except NavigationError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@app.post(
+    "/api/navigation/cancel",
+    response_model=NavigationStatus,
+    dependencies=[Depends(require_control_token)],
+)
+def navigation_cancel() -> NavigationStatus:
+    return navigator.cancel("Cancelled by operator")
+
+
+@app.post(
+    "/api/navigation/replan",
+    response_model=NavigationPlan,
+    dependencies=[Depends(require_control_token)],
+)
+def navigation_replan() -> NavigationPlan:
+    try:
+        return navigator.replan_current_goal()
+    except NavigationError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@app.get("/api/dock/status", response_model=DockStatus)
+def dock_status() -> DockStatus:
+    return dock.status()
+
+
+@app.post(
+    "/api/dock/set",
+    response_model=DockStatus,
+    dependencies=[Depends(require_control_token)],
+)
+def dock_set(pose: Pose2D) -> DockStatus:
+    return dock.set_pose(pose)
+
+
+@app.post(
+    "/api/dock/set-current",
+    response_model=DockStatus,
+    dependencies=[Depends(require_control_token)],
+)
+def dock_set_current() -> DockStatus:
+    try:
+        return dock.set_current_pose()
+    except NavigationError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@app.post(
+    "/api/dock/plan-return",
+    response_model=NavigationPlan,
+    dependencies=[Depends(require_control_token)],
+)
+def dock_plan_return() -> NavigationPlan:
+    try:
+        return dock.plan_return()
+    except NavigationError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@app.post(
+    "/api/dock/start-return",
+    response_model=NavigationStatus,
+    dependencies=[Depends(require_control_token)],
+)
+def dock_start_return() -> NavigationStatus:
+    try:
+        return dock.start_return()
+    except NavigationError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
 @app.post("/api/chat", response_model=ChatResponse)

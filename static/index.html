@@ -17,15 +17,16 @@
     .camera-wrap{position:relative;aspect-ratio:16/9;border-radius:17px;overflow:hidden;background:#050a12;border:1px solid #22324a;display:grid;place-items:center}.camera-wrap img{width:100%;height:100%;object-fit:cover;display:none}.camera-placeholder{color:#63748d;text-align:center;font-size:13px;padding:20px}.motion-chip{position:absolute;left:12px;bottom:12px;background:rgba(5,10,18,.78);border:1px solid #32435d;border-radius:999px;padding:7px 10px;font-size:11px;backdrop-filter:blur(8px)}
     .lidar-wrap{position:relative;aspect-ratio:16/9;border-radius:17px;overflow:hidden;background:#050a12;border:1px solid #22324a}.lidar-wrap canvas{width:100%;height:100%;display:block}.lidar-chip{position:absolute;left:12px;bottom:12px;background:rgba(5,10,18,.78);border:1px solid #32435d;border-radius:999px;padding:7px 10px;font-size:11px;backdrop-filter:blur(8px)}
     .spatial-hero{display:grid;grid-template-columns:1.2fr .8fr;gap:10px}.path-box{background:#0a121f;border:1px solid #21304a;border-radius:17px;padding:15px}.path-box strong{font-size:20px;display:block;margin:4px 0}.distance-big{font-size:34px;font-weight:900;letter-spacing:-.04em}.sim-row{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}.sim-row button{padding:8px 10px;font-size:11px}
+    .map-layout{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(300px,.55fr);gap:12px}.map-wrap{position:relative;min-height:430px;border-radius:17px;overflow:hidden;background:#050a12;border:1px solid #22324a}.map-wrap canvas{width:100%;height:100%;min-height:430px;display:block}.map-chip{position:absolute;left:12px;bottom:12px;background:rgba(5,10,18,.8);border:1px solid #32435d;border-radius:999px;padding:7px 10px;font-size:11px;backdrop-filter:blur(8px)}.nav-side{display:grid;gap:10px;align-content:start}.nav-fields{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.field label{display:block;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.08em;margin:0 0 5px 2px}.field input{width:100%;padding:10px}.nav-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}.nav-actions button{min-height:42px}.secondary{background:#121c2d}.cancel-btn{background:#49202a;border-color:#70303d}
     .memory-list{max-height:230px;overflow:auto}.memory{border-bottom:1px solid #20304a;padding:10px 2px;color:#dce6f5;font-size:13px}.memory small{color:var(--muted);display:block;margin-top:4px}.footer-note{text-align:center;color:#6f8099;font-size:11px;margin:16px 0 2px}
-    @media(max-width:940px){.grid{grid-template-columns:1fr}.full{grid-column:auto}.status-grid{grid-template-columns:repeat(2,1fr)}header{flex-direction:column}.shell{padding:14px}}@media(max-width:540px){.data-grid,.spatial-hero{grid-template-columns:1fr}.composer{display:grid;grid-template-columns:46px 1fr}.send{grid-column:1/-1;height:44px}}
+    @media(max-width:940px){.grid{grid-template-columns:1fr}.full{grid-column:auto}.status-grid{grid-template-columns:repeat(2,1fr)}.map-layout{grid-template-columns:1fr}header{flex-direction:column}.shell{padding:14px}}@media(max-width:540px){.data-grid,.spatial-hero,.nav-fields{grid-template-columns:1fr}.composer{display:grid;grid-template-columns:46px 1fr}.send{grid-column:1/-1;height:44px}.map-wrap,.map-wrap canvas{min-height:330px}}
   </style>
 </head>
 <body>
 <div class="shell">
   <header>
-    <div class="brand"><div class="logo">R</div><div><h1>Ribitics</h1><div class="sub">Local robot brain · voice · vision · spatial safety · memory</div></div></div>
-    <div class="top-actions"><div id="connection" class="pill">Robot: connecting…</div><div id="pathPill" class="pill">Path: checking…</div><div id="cameraPill" class="pill">Camera: checking…</div><div id="lidarPill" class="pill">LiDAR: checking…</div><div id="voicePill" class="pill">Voice: checking…</div></div>
+    <div class="brand"><div class="logo">R</div><div><h1>Ribitics</h1><div class="sub">Local robot brain · voice · vision · LiDAR · odometry · mapping · supervised navigation</div></div></div>
+    <div class="top-actions"><div id="connection" class="pill">Robot: connecting…</div><div id="pathPill" class="pill">Path: checking…</div><div id="odomPill" class="pill">Pose: checking…</div><div id="navPill" class="pill">Nav: checking…</div><div id="cameraPill" class="pill">Camera: checking…</div><div id="lidarPill" class="pill">LiDAR: checking…</div><div id="voicePill" class="pill">Voice: checking…</div></div>
   </header>
   <div class="grid">
     <section class="card">
@@ -87,6 +88,46 @@
       </div>
     </section>
 
+    <section class="card full">
+      <div class="card-head"><div><div class="eyebrow">Odometry + mapping</div><h2>Local map & supervised navigation</h2></div><div id="mapStateBadge" class="pill">Map: waiting</div></div>
+      <div class="map-layout">
+        <div class="map-wrap"><canvas id="mapCanvas" width="820" height="460"></canvas><div id="mapChip" class="map-chip">Local map centered on startup pose</div></div>
+        <div class="nav-side">
+          <div class="data-grid">
+            <div class="data-box"><span>Dead-reckoned pose</span><div id="odomPose">—</div></div>
+            <div class="data-box"><span>Velocity</span><div id="odomVelocity">—</div></div>
+            <div class="data-box"><span>Map cells</span><div id="mapStats">—</div></div>
+            <div class="data-box"><span>Navigation</span><div id="navState">idle</div></div>
+            <div class="data-box"><span>Recovery</span><div id="recoveryState">not needed</div></div>
+            <div class="data-box"><span>Dock</span><div id="dockState">not set</div></div>
+          </div>
+          <div class="path-box">
+            <span class="eyebrow">Destination in local centimeters</span>
+            <div class="nav-fields">
+              <div class="field"><label for="goalX">X cm</label><input id="goalX" type="number" value="200" step="10" /></div>
+              <div class="field"><label for="goalY">Y cm</label><input id="goalY" type="number" value="0" step="10" /></div>
+              <div class="field"><label for="goalHeading">Heading °</label><input id="goalHeading" type="number" placeholder="optional" step="5" /></div>
+            </div>
+            <div class="nav-actions" style="margin-top:9px">
+              <button id="planRoute" class="primary">Plan route</button>
+              <button id="startRoute" class="primary">Start supervised</button>
+              <button id="cancelRoute" class="cancel-btn">Cancel route</button>
+              <button id="replanRoute" class="secondary">Replan stopped route</button>
+              <button id="resetPose" class="secondary">Reset pose 0,0</button>
+              <button id="clearMap" class="secondary">Clear map</button>
+              <button id="setDock" class="secondary">Mark dock here</button>
+              <button id="planDock" class="secondary">Plan dock approach</button>
+              <button id="startDock" class="primary">Start dock approach</button>
+              <button id="addMapObstacle" class="secondary" style="display:none">Sim obstacle ahead</button>
+            </div>
+          </div>
+          <div id="navError" class="error-box"></div>
+          <p id="navReason" class="hint">Physical execution is locked unless odometry is calibrated and LiDAR/map health checks pass. Simulation can execute for development.</p>
+          <p class="hint danger">This is local dead reckoning, not global SLAM. Wheel slip accumulates. Keep physical navigation supervised and within line of sight.</p>
+        </div>
+      </div>
+    </section>
+
     <section class="card">
       <div class="card-head"><div><div class="eyebrow">Conversation</div><h2>Talk to Ribitics</h2></div></div>
       <div id="chatlog" class="chatlog"><div class="msg bot">I'm online. Ask “is the path clear?” and I’ll answer from live sensor state instead of guessing.</div></div>
@@ -110,12 +151,12 @@
     </section>
 
     <section class="card full">
-      <div class="card-head"><div><div class="eyebrow">System</div><h2>Ribitics v0.3 stack</h2></div></div>
-      <div class="status-grid"><div class="metric"><span>Wake phrase / STT</span><strong>Vosk</strong></div><div class="metric"><span>AI brain</span><strong>Ollama</strong></div><div class="metric"><span>Vision</span><strong>OpenCV</strong></div><div class="metric"><span>Space sensing</span><strong>2D LiDAR + proximity</strong></div></div>
-      <p class="hint">Autonomous navigation remains disabled. Camera, bumpers, proximity and 2D LiDAR now provide the perception/safety foundation for a later mapping and odometry stage.</p>
+      <div class="card-head"><div><div class="eyebrow">System</div><h2>Ribitics v0.4 stack</h2></div></div>
+      <div class="status-grid"><div class="metric"><span>Dead reckoning</span><strong>Signed encoders</strong></div><div class="metric"><span>Local mapping</span><strong>LiDAR occupancy</strong></div><div class="metric"><span>Route planning</span><strong>A* + inflation</strong></div><div class="metric"><span>Execution</span><strong>Supervised only</strong></div></div>
+      <p class="hint">v0.4 can build a local occupancy map, plan around obstacles and follow a low-speed route. Hardware execution remains configuration-locked until encoder calibration and live perception prerequisites are verified.</p>
     </section>
   </div>
-  <div class="footer-note">Ribitics Robot v0.3 · camera/proximity safety supplements, but never replaces, the physical emergency stop</div>
+  <div class="footer-note">Ribitics Robot v0.4 · local navigation remains supervised; software safety never replaces the physical emergency stop</div>
 </div>
 <script>
 const qs=function(s){return document.querySelector(s)};
@@ -123,18 +164,23 @@ const token=localStorage.getItem('ribiticsToken')||'';
 let cameraReady=false;
 let cameraObjectUrl='';
 let lidarReady=false;
+let currentOdom=null;
+let currentMap=null;
+let currentPlan=null;
+let currentNav=null;
+let currentDock=null;
 function authHeaders(){return token?{'Content-Type':'application/json','X-Ribitics-Token':token}:{'Content-Type':'application/json'}}
 function authGetHeaders(){return token?{'X-Ribitics-Token':token}:{}}
 function fmtDistance(v){return v===null||v===undefined?'—':Number(v).toFixed(1)+' cm'}
 function addMessage(text,who){var d=document.createElement('div');d.className='msg '+(who||'bot');d.textContent=text;qs('#chatlog').appendChild(d);qs('#chatlog').scrollTop=qs('#chatlog').scrollHeight}
 function speakBrowser(text){if('speechSynthesis' in window){speechSynthesis.cancel();speechSynthesis.speak(new SpeechSynthesisUtterance(text))}}
 
-async function robotStatus(){try{var r=await fetch('/api/status');var s=await r.json();qs('#connection').textContent=s.connected?'● Robot connected':'● Robot disconnected';qs('#connection').style.color=s.connected?'#4ed47a':'#ff6677';qs('#mode').textContent=s.mode;qs('#battery').textContent=s.battery_voltage?Number(s.battery_voltage).toFixed(1)+'V':'—';qs('#leftMotor').textContent=s.left_motor+'%';qs('#rightMotor').textContent=s.right_motor+'%';qs('#hardwareMessage').textContent=s.last_message||'No hardware message';qs('#estopPill').textContent=s.estop?'E-STOP ACTIVE':'E-stop clear';qs('#estopPill').style.color=s.estop?'#ff6677':'#4ed47a';qs('#simControls').style.display=s.mode==='simulation'?'block':'none'}catch(e){qs('#connection').textContent='● Backend offline';qs('#connection').style.color='#ff6677'}}
+async function robotStatus(){try{var r=await fetch('/api/status');var s=await r.json();qs('#connection').textContent=s.connected?'● Robot connected':'● Robot disconnected';qs('#connection').style.color=s.connected?'#4ed47a':'#ff6677';qs('#mode').textContent=s.mode;qs('#battery').textContent=s.battery_voltage?Number(s.battery_voltage).toFixed(1)+'V':'—';qs('#leftMotor').textContent=s.left_motor+'%';qs('#rightMotor').textContent=s.right_motor+'%';qs('#hardwareMessage').textContent=s.last_message||'No hardware message';qs('#estopPill').textContent=s.estop?'E-STOP ACTIVE':'E-stop clear';qs('#estopPill').style.color=s.estop?'#ff6677':'#4ed47a';qs('#simControls').style.display=s.mode==='simulation'?'block':'none';qs('#addMapObstacle').style.display=s.mode==='simulation'?'block':'none'}catch(e){qs('#connection').textContent='● Backend offline';qs('#connection').style.color='#ff6677'}}
 
 async function spatialStatus(){try{var r=await fetch('/api/spatial/status');var s=await r.json();var colors={clear:'#4ed47a',warning:'#ffc857',stop:'#ff6677',unknown:'#93a3bb'};var color=colors[s.hazard_level]||'#93a3bb';qs('#hazardBadge').textContent=s.hazard_level.toUpperCase();qs('#hazardBadge').style.color=color;qs('#pathPill').textContent=s.clear_to_move_forward?'● Forward allowed':'● Forward blocked';qs('#pathPill').style.color=s.clear_to_move_forward?color:'#ff6677';qs('#pathState').textContent=s.clear_to_move_forward?'Forward available':'Forward blocked';qs('#pathState').style.color=s.clear_to_move_forward?color:'#ff6677';qs('#pathReason').textContent=s.reason;qs('#frontDistance').textContent=fmtDistance(s.nearest_forward_distance_cm);qs('#leftDistance').textContent=fmtDistance(s.left_distance_cm);qs('#rightDistance').textContent=fmtDistance(s.right_distance_cm);qs('#bumpers').textContent=(s.front_bumper_left?'LEFT ':'')+(s.front_bumper_right?'RIGHT':'')||'clear';qs('#bumpers').style.color=(s.front_bumper_left||s.front_bumper_right)?'#ff6677':'#4ed47a';qs('#lidar').textContent=s.lidar_connected?(s.lidar_min_distance_cm!==null?'connected · '+fmtDistance(s.lidar_min_distance_cm):'connected'):'not connected';qs('#stopThreshold').textContent=s.obstacle_stop_cm;qs('.up').disabled=!s.clear_to_move_forward}catch(e){}}
 
-async function drive(linear,angular){try{var r=await fetch('/api/drive',{method:'POST',headers:authHeaders(),body:JSON.stringify({linear:linear,angular:angular})});if(r.status===409){var data=await r.json();qs('#hardwareMessage').textContent='Safety block: '+data.detail;await spatialStatus();return}if(!r.ok)throw new Error('drive failed');await robotStatus()}catch(e){qs('#hardwareMessage').textContent='Drive command failed'}}
-async function stop(){await fetch('/api/stop',{method:'POST',headers:authHeaders()});robotStatus()}
+async function drive(linear,angular){try{var r=await fetch('/api/drive',{method:'POST',headers:authHeaders(),body:JSON.stringify({linear:linear,angular:angular})});if(r.status===409){var data=await r.json();qs('#hardwareMessage').textContent='Safety block: '+data.detail;await spatialStatus();return}if(!r.ok)throw new Error('drive failed');await robotStatus();navigationStatus()}catch(e){qs('#hardwareMessage').textContent='Drive command failed'}}
+async function stop(){await fetch('/api/stop',{method:'POST',headers:authHeaders()});robotStatus();navigationStatus()}
 document.querySelectorAll('[data-linear]').forEach(function(b){var start=function(e){e.preventDefault();if(!b.disabled)drive(Number(b.dataset.linear),Number(b.dataset.angular))};b.addEventListener('pointerdown',start);b.addEventListener('pointerup',stop);b.addEventListener('pointerleave',stop);b.addEventListener('pointercancel',stop)});
 qs('#stop').onclick=stop;
 
@@ -152,6 +198,30 @@ function drawLidar(points){var canvas=qs('#lidarCanvas');var ctx=canvas.getConte
 async function refreshLidarScan(){if(!lidarReady)return;try{var r=await fetch('/api/lidar/scan',{headers:authGetHeaders(),cache:'no-store'});if(!r.ok)return;var scan=await r.json();drawLidar(scan.points||[])}catch(e){}}
 drawLidar([]);
 
+async function odometryStatus(){try{var r=await fetch('/api/odometry/status');var o=await r.json();currentOdom=o;var healthy=o.ready&&!o.stale;qs('#odomPill').textContent=healthy?'● Pose live':'● Pose not ready';qs('#odomPill').style.color=healthy?(o.calibrated?'#4ed47a':'#ffc857'):'#ff6677';qs('#odomPose').textContent='x '+Number(o.pose.x_cm).toFixed(1)+' · y '+Number(o.pose.y_cm).toFixed(1)+' · '+Number(o.pose.heading_deg).toFixed(1)+'°';qs('#odomVelocity').textContent=Number(o.linear_velocity_cm_s).toFixed(1)+' cm/s · '+Number(o.angular_velocity_deg_s).toFixed(1)+'°/s';drawMap()}catch(e){qs('#odomPill').textContent='● Pose unavailable';qs('#odomPill').style.color='#ff6677'}}
+
+async function mapStatus(){try{var sr=await fetch('/api/map/status');var s=await sr.json();qs('#mapStateBadge').textContent=s.ready?'Map: ready':'Map: waiting';qs('#mapStateBadge').style.color=s.ready?'#4ed47a':'#ffc857';qs('#mapStats').textContent=s.occupied_cells+' occupied · '+s.free_cells+' free';var r=await fetch('/api/map/snapshot',{headers:authGetHeaders(),cache:'no-store'});if(r.ok){currentMap=await r.json();drawMap()}}catch(e){}}
+
+function goalPayload(){var heading=qs('#goalHeading').value.trim();return{x_cm:Number(qs('#goalX').value||0),y_cm:Number(qs('#goalY').value||0),heading_deg:heading===''?null:Number(heading)}}
+function showNavError(text){if(text){qs('#navError').style.display='block';qs('#navError').textContent=text}else{qs('#navError').style.display='none';qs('#navError').textContent=''}}
+async function navigationStatus(){try{var r=await fetch('/api/navigation/status');var n=await r.json();currentNav=n;qs('#navState').textContent=n.state+(n.distance_remaining_cm!==null?' · '+Number(n.distance_remaining_cm).toFixed(0)+' cm left':'');qs('#navReason').textContent=n.reason||'No active route';var colors={running:'#4ed47a',arrived:'#4ed47a',blocked:'#ff6677',error:'#ff6677',cancelled:'#ffc857',planned:'#65b5ff',replanned:'#65b5ff',idle:'#93a3bb'};qs('#navPill').textContent='● Nav '+n.state;qs('#navPill').style.color=colors[n.state]||'#93a3bb';qs('#recoveryState').textContent=n.recovery_available?'replan available':'not needed';qs('#recoveryState').style.color=n.recovery_available?'#ffc857':'#93a3bb';if(n.waypoint_count>0){var pr=await fetch('/api/navigation/plan');if(pr.ok)currentPlan=await pr.json()}drawMap()}catch(e){qs('#navPill').textContent='● Nav unavailable';qs('#navPill').style.color='#ff6677'}}
+
+async function planRoute(){showNavError('');try{var r=await fetch('/api/navigation/plan',{method:'POST',headers:authHeaders(),body:JSON.stringify(goalPayload())});var data=await r.json();if(!r.ok)throw new Error(data.detail||'Route planning failed');currentPlan=data;drawMap();navigationStatus()}catch(e){showNavError(e.message)}}
+async function startRoute(){showNavError('');try{var r=await fetch('/api/navigation/start',{method:'POST',headers:authHeaders(),body:JSON.stringify(goalPayload())});var data=await r.json();if(!r.ok)throw new Error(data.detail||'Navigation start failed');currentNav=data;var pr=await fetch('/api/navigation/plan');if(pr.ok)currentPlan=await pr.json();drawMap();navigationStatus()}catch(e){showNavError(e.message)}}
+async function cancelRoute(){await fetch('/api/navigation/cancel',{method:'POST',headers:authHeaders()});navigationStatus();robotStatus()}
+async function replanRoute(){showNavError('');try{var r=await fetch('/api/navigation/replan',{method:'POST',headers:authHeaders()});var data=await r.json();if(!r.ok)throw new Error(data.detail||'Replan failed');currentPlan=data;drawMap();navigationStatus()}catch(e){showNavError(e.message)}}
+async function dockStatus(){try{var r=await fetch('/api/dock/status');var d=await r.json();currentDock=d;qs('#dockState').textContent=d.configured?(Number(d.distance_to_dock_cm||0).toFixed(0)+' cm · approach '+Number(d.approach_goal.x_cm).toFixed(0)+','+Number(d.approach_goal.y_cm).toFixed(0)):'not set';qs('#dockState').style.color=d.configured?'#65b5ff':'#93a3bb';drawMap()}catch(e){}}
+async function setDockHere(){showNavError('');try{var r=await fetch('/api/dock/set-current',{method:'POST',headers:authHeaders()});var data=await r.json();if(!r.ok)throw new Error(data.detail||'Could not mark dock');currentDock=data;dockStatus()}catch(e){showNavError(e.message)}}
+async function planDockReturn(){showNavError('');try{var r=await fetch('/api/dock/plan-return',{method:'POST',headers:authHeaders()});var data=await r.json();if(!r.ok)throw new Error(data.detail||'Dock route failed');currentPlan=data;drawMap();navigationStatus()}catch(e){showNavError(e.message)}}
+async function startDockReturn(){showNavError('');try{var r=await fetch('/api/dock/start-return',{method:'POST',headers:authHeaders()});var data=await r.json();if(!r.ok)throw new Error(data.detail||'Dock approach start failed');currentNav=data;var pr=await fetch('/api/navigation/plan');if(pr.ok)currentPlan=await pr.json();drawMap();navigationStatus()}catch(e){showNavError(e.message)}}
+async function resetPose(){await fetch('/api/odometry/reset',{method:'POST',headers:authHeaders(),body:JSON.stringify({x_cm:0,y_cm:0,heading_deg:0})});currentPlan=null;odometryStatus();navigationStatus();drawMap()}
+async function clearLocalMap(){await fetch('/api/map/clear',{method:'POST',headers:authHeaders()});currentPlan=null;mapStatus();navigationStatus()}
+async function addMapObstacleAhead(){if(!currentOdom)return;var a=Number(currentOdom.pose.heading_deg)*Math.PI/180;var payload={x_cm:Number(currentOdom.pose.x_cm)+100*Math.cos(a),y_cm:Number(currentOdom.pose.y_cm)+100*Math.sin(a),radius_cm:25};await fetch('/api/simulation/map-obstacle',{method:'POST',headers:authHeaders(),body:JSON.stringify(payload)});mapStatus()}
+
+qs('#planRoute').onclick=planRoute;qs('#startRoute').onclick=startRoute;qs('#cancelRoute').onclick=cancelRoute;qs('#replanRoute').onclick=replanRoute;qs('#resetPose').onclick=resetPose;qs('#clearMap').onclick=clearLocalMap;qs('#setDock').onclick=setDockHere;qs('#planDock').onclick=planDockReturn;qs('#startDock').onclick=startDockReturn;qs('#addMapObstacle').onclick=addMapObstacleAhead;
+
+function drawMap(){var canvas=qs('#mapCanvas');if(!canvas)return;var ctx=canvas.getContext('2d');var w=canvas.width,h=canvas.height;ctx.clearRect(0,0,w,h);ctx.fillStyle='#050a12';ctx.fillRect(0,0,w,h);var size=currentMap?Number(currentMap.size_cm):1200;var scale=Math.min(w/size,h/size)*.94;var cx=w/2,cy=h/2;var toScreen=function(x,y){return[cx+Number(x)*scale,cy-Number(y)*scale]};ctx.strokeStyle='#132238';ctx.lineWidth=1;for(var g=-Math.floor(size/2/100)*100;g<=size/2;g+=100){var p1=toScreen(g,-size/2),p2=toScreen(g,size/2);ctx.beginPath();ctx.moveTo(p1[0],p1[1]);ctx.lineTo(p2[0],p2[1]);ctx.stroke();var q1=toScreen(-size/2,g),q2=toScreen(size/2,g);ctx.beginPath();ctx.moveTo(q1[0],q1[1]);ctx.lineTo(q2[0],q2[1]);ctx.stroke()}ctx.strokeStyle='#28415f';var xaxis1=toScreen(-size/2,0),xaxis2=toScreen(size/2,0),yaxis1=toScreen(0,-size/2),yaxis2=toScreen(0,size/2);ctx.beginPath();ctx.moveTo(xaxis1[0],xaxis1[1]);ctx.lineTo(xaxis2[0],xaxis2[1]);ctx.moveTo(yaxis1[0],yaxis1[1]);ctx.lineTo(yaxis2[0],yaxis2[1]);ctx.stroke();if(currentMap&&currentMap.occupied){var cellPx=Math.max(2,Number(currentMap.resolution_cm)*scale);ctx.fillStyle='#ff6677';currentMap.occupied.forEach(function(cell){var p=toScreen(cell.x_cm,cell.y_cm);ctx.fillRect(p[0]-cellPx/2,p[1]-cellPx/2,cellPx,cellPx)})}if(currentDock&&currentDock.configured&&currentDock.dock_pose){var dp=toScreen(currentDock.dock_pose.x_cm,currentDock.dock_pose.y_cm);ctx.fillStyle='#b78cff';ctx.fillRect(dp[0]-7,dp[1]-7,14,14);if(currentDock.approach_goal){var ap=toScreen(currentDock.approach_goal.x_cm,currentDock.approach_goal.y_cm);ctx.strokeStyle='#b78cff';ctx.setLineDash([5,5]);ctx.beginPath();ctx.moveTo(dp[0],dp[1]);ctx.lineTo(ap[0],ap[1]);ctx.stroke();ctx.setLineDash([]);ctx.beginPath();ctx.arc(ap[0],ap[1],6,0,Math.PI*2);ctx.stroke()}}if(currentPlan&&currentPlan.waypoints&&currentPlan.waypoints.length){ctx.strokeStyle='#65b5ff';ctx.lineWidth=3;ctx.beginPath();currentPlan.waypoints.forEach(function(point,i){var p=toScreen(point.x_cm,point.y_cm);if(i===0)ctx.moveTo(p[0],p[1]);else ctx.lineTo(p[0],p[1])});ctx.stroke();var goal=currentPlan.goal;if(goal){var gp=toScreen(goal.x_cm,goal.y_cm);ctx.strokeStyle='#ffc857';ctx.lineWidth=3;ctx.beginPath();ctx.arc(gp[0],gp[1],9,0,Math.PI*2);ctx.stroke()}}var pose=currentOdom?currentOdom.pose:(currentMap?currentMap.robot_pose:null);if(pose){var p=toScreen(pose.x_cm,pose.y_cm);var a=-Number(pose.heading_deg)*Math.PI/180;ctx.save();ctx.translate(p[0],p[1]);ctx.rotate(a);ctx.fillStyle='#4ed47a';ctx.beginPath();ctx.moveTo(15,0);ctx.lineTo(-10,-9);ctx.lineTo(-7,0);ctx.lineTo(-10,9);ctx.closePath();ctx.fill();ctx.restore()}ctx.fillStyle='#63748d';ctx.font='11px system-ui';ctx.fillText('local origin',cx+7,cy-7);ctx.fillText((size/100).toFixed(0)+' m square',12,20);qs('#mapChip').textContent=currentNav&&currentNav.running?'Route active · manual input cancels navigation':'Local map · X right · Y up'}
+
 async function send(){var input=qs('#message');var message=input.value.trim();if(!message)return;input.value='';addMessage(message,'me');try{var r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:message})});if(!r.ok)throw new Error('chat failed');var data=await r.json();addMessage(data.reply,'bot');speakBrowser(data.reply);loadMemories()}catch(e){addMessage('I could not reach the robot brain.','bot')}}
 qs('#send').onclick=send;qs('#message').addEventListener('keydown',function(e){if(e.key==='Enter')send()});
 var SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
@@ -164,8 +234,8 @@ qs('#voiceToggle').onclick=async function(){var running=qs('#voiceToggle').datas
 function escapeHtml(s){return String(s).replace(/[&<>'"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]})}
 async function loadMemories(){try{var r=await fetch('/api/memories?limit=20');var ms=await r.json();if(!ms.length){qs('#memories').innerHTML='<div class="hint">No memories saved yet.</div>';return}qs('#memories').innerHTML=ms.map(function(m){return '<div class="memory">'+escapeHtml(m.content)+'<small>importance '+m.importance+' · '+(m.tags.map(escapeHtml).join(', ')||'untagged')+'</small></div>'}).join('')}catch(e){}}
 
-setInterval(robotStatus,1000);setInterval(spatialStatus,650);setInterval(cameraStatus,1200);setInterval(refreshCameraFrame,800);setInterval(lidarStatus,1200);setInterval(refreshLidarScan,700);setInterval(voiceStatus,1200);
-robotStatus();spatialStatus();cameraStatus();lidarStatus();voiceStatus();loadMemories();
+setInterval(robotStatus,1000);setInterval(spatialStatus,650);setInterval(odometryStatus,600);setInterval(mapStatus,1200);setInterval(navigationStatus,700);setInterval(dockStatus,1400);setInterval(cameraStatus,1200);setInterval(refreshCameraFrame,800);setInterval(lidarStatus,1200);setInterval(refreshLidarScan,700);setInterval(voiceStatus,1200);
+robotStatus();spatialStatus();odometryStatus();mapStatus();navigationStatus();dockStatus();cameraStatus();lidarStatus();voiceStatus();loadMemories();
 </script>
 </body>
 </html>
