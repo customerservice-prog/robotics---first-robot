@@ -76,6 +76,15 @@ class LocalLLM:
                 "bumper",
                 "lidar",
                 "sensor",
+                "where are you",
+                "position",
+                "pose",
+                "odometry",
+                "map",
+                "navigation",
+                "route",
+                "waypoint",
+                "goal",
             )
         )
         if perception_question and live_context.strip():
@@ -89,6 +98,6 @@ class LocalLLM:
             )
         return (
             "I heard you. My local language model is not connected yet, so I'm using my basic "
-            "offline responder. You can still teach me memories, inspect live sensors, and control "
-            "the robot manually."
+            "offline responder. You can still teach me memories, inspect live sensors and odometry, "
+            "plan local routes, and control the robot manually."
         )
