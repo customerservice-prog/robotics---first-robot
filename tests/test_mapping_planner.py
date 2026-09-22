@@ -98,3 +98,36 @@ def test_sparse_map_persistence_round_trip(tmp_path):
     assert status.learning_enabled is False
     assert status.dirty is False
     assert restored.grid_copy() == mapping.grid_copy()
+
+
+
+def test_map_identity_and_revision_round_trip(tmp_path):
+    mapping, odom = build_map()
+    path = tmp_path / "identity-map.json"
+    mapping.persistence_path = path
+    mapping.add_virtual_obstacle(80, 40, 10)
+    original_id = mapping.identity().map_id
+    saved = mapping.save()
+    assert saved.success is True
+    assert saved.map_id == original_id
+    assert saved.revision >= 1
+
+    restored = LocalOccupancyMap(
+        mapping.lidar,
+        odom,
+        resolution_cm=5,
+        size_cm=600,
+        robot_radius_cm=20,
+        persistence_path=str(path),
+    )
+    loaded = restored.load()
+    assert loaded.success is True
+    assert restored.identity().map_id == original_id
+    assert restored.identity().revision == saved.revision
+    snapshot = restored.snapshot()
+    assert snapshot.map_id == original_id
+    assert snapshot.revision == saved.revision
+
+    restored.clear()
+    assert restored.identity().map_id != original_id
+    assert restored.identity().revision == 0
