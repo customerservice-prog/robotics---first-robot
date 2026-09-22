@@ -11,7 +11,7 @@ from app.models import RobotStatus
 
 
 class ESP32SerialHardware(RobotHardware):
-    """JSON-lines protocol to the ESP32-S3 motor controller firmware."""
+    """JSON-lines protocol to the ESP32-S3 motor and safety controller."""
 
     def __init__(self, name: str, port: str, baud: int):
         self.name = name
@@ -78,6 +78,13 @@ class ESP32SerialHardware(RobotHardware):
             battery_voltage=self._telemetry.get("battery_voltage"),
             left_ticks=self._telemetry.get("left_ticks"),
             right_ticks=self._telemetry.get("right_ticks"),
+            front_distance_cm=self._telemetry.get("front_distance_cm"),
+            left_distance_cm=self._telemetry.get("left_distance_cm"),
+            right_distance_cm=self._telemetry.get("right_distance_cm"),
+            front_bumper_left=bool(self._telemetry.get("front_bumper_left", False)),
+            front_bumper_right=bool(self._telemetry.get("front_bumper_right", False)),
+            lidar_connected=bool(self._telemetry.get("lidar_connected", False)),
+            lidar_min_distance_cm=self._telemetry.get("lidar_min_distance_cm"),
             last_message=self._last_message,
         )
 

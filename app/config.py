@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     database_path: str = "data/ribitics.db"
     ollama_url: str = "http://127.0.0.1:11434"
     ollama_model: str = "qwen2.5:3b"
+
     enable_local_tts: bool = False
     tts_command: str = "espeak-ng"
     enable_voice_loop: bool = False
@@ -24,6 +25,26 @@ class Settings(BaseSettings):
     voice_sample_rate: int = 16000
     voice_block_size: int = 4000
     voice_command_timeout_seconds: float = 8.0
+
+    enable_camera: bool = False
+    camera_device: str = "0"
+    camera_width: int = 640
+    camera_height: int = 480
+    camera_fps: float = 12.0
+    camera_jpeg_quality: int = 80
+    camera_motion_threshold: float = 12.0
+
+    enable_lidar: bool = False
+    lidar_model: str = "RPLIDAR-A1"
+    lidar_port: str = "/dev/ttyUSB0"
+    lidar_forward_angle_deg: float = 0.0
+    lidar_front_arc_deg: float = 35.0
+    lidar_max_distance_mm: float = 6000.0
+
+    obstacle_stop_cm: float = 35.0
+    obstacle_warn_cm: float = 70.0
+    require_proximity_for_forward: bool = False
+
     max_motor_percent: int = 65
     control_token: str = "change-me-before-network-use"
 

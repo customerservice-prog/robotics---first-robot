@@ -1,4 +1,5 @@
 import re
+from collections.abc import Callable
 
 from app.models import ChatResponse
 from app.services.llm import LocalLLM
@@ -12,9 +13,15 @@ REMEMBER_PATTERNS = [
 
 
 class ConversationService:
-    def __init__(self, memory: MemoryStore, llm: LocalLLM):
+    def __init__(
+        self,
+        memory: MemoryStore,
+        llm: LocalLLM,
+        context_provider: Callable[[], str] | None = None,
+    ):
         self.memory = memory
         self.llm = llm
+        self.context_provider = context_provider
 
     async def chat(self, message: str) -> ChatResponse:
         cleaned = message.strip()
@@ -34,7 +41,14 @@ class ConversationService:
                     model="memory",
                 )
 
+        live_context = ""
+        if self.context_provider is not None:
+            try:
+                live_context = self.context_provider()
+            except Exception:
+                live_context = ""
+
         memories = [record.content for record in self.memory.search(cleaned, limit=8)]
-        reply, model = await self.llm.reply(cleaned, memories, history)
+        reply, model = await self.llm.reply(cleaned, memories, history, live_context)
         self.memory.add_conversation_message("assistant", reply)
         return ChatResponse(reply=reply, model=model)
