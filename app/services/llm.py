@@ -11,22 +11,31 @@ class LocalLLM:
         self.model = model
         self.robot_name = robot_name
 
-    async def reply(self, message: str, memories: list[str]) -> tuple[str, str]:
+    async def reply(
+        self,
+        message: str,
+        memories: list[str],
+        history: list[dict[str, str]] | None = None,
+    ) -> tuple[str, str]:
         system = (
             f"You are {self.robot_name}, an upgradeable physical robot assistant. "
             "Be practical, concise, truthful about what your hardware can actually do, and never claim "
-            "a physical action completed unless telemetry confirms it. Use supplied memories when relevant. "
-            "If the user corrects you, accept the correction plainly.\n\n"
+            "a physical action completed unless telemetry confirms it. Use supplied memories and recent "
+            "conversation context when relevant. If the user corrects you, accept the correction plainly.\n\n"
             "Relevant persistent memories:\n"
             + ("\n".join(f"- {memory}" for memory in memories) if memories else "- none")
         )
+        messages = [{"role": "system", "content": system}]
+        for item in (history or [])[-12:]:
+            role = item.get("role")
+            content = item.get("content", "").strip()
+            if role in {"user", "assistant"} and content:
+                messages.append({"role": role, "content": content})
+        messages.append({"role": "user", "content": message})
         payload = {
             "model": self.model,
             "stream": False,
-            "messages": [
-                {"role": "system", "content": system},
-                {"role": "user", "content": message},
-            ],
+            "messages": messages,
         }
         try:
             async with httpx.AsyncClient(timeout=45) as client:

@@ -15,3 +15,14 @@ def test_delete_memory(tmp_path):
     created = store.add("test fact")
     assert store.delete(created.id) is True
     assert store.delete(created.id) is False
+
+
+def test_conversation_history_persists(tmp_path):
+    store = MemoryStore(str(tmp_path / "memory.db"))
+    store.add_conversation_message("user", "My name is Bryan")
+    store.add_conversation_message("assistant", "Got it")
+    history = store.recent_conversation()
+    assert history == [
+        {"role": "user", "content": "My name is Bryan"},
+        {"role": "assistant", "content": "Got it"},
+    ]

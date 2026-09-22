@@ -33,6 +33,20 @@ class MemoryStore:
                 """
             )
             db.execute("CREATE INDEX IF NOT EXISTS idx_memories_created ON memories(created_at)")
+            db.execute(
+                """
+                CREATE TABLE IF NOT EXISTS conversation_messages (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    role TEXT NOT NULL CHECK(role IN ('user', 'assistant')),
+                    content TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                )
+                """
+            )
+            db.execute(
+                "CREATE INDEX IF NOT EXISTS idx_conversation_created "
+                "ON conversation_messages(created_at)"
+            )
 
     def add(self, content: str, tags: list[str] | None = None, importance: int = 5) -> MemoryRecord:
         created_at = datetime.now(timezone.utc)
@@ -76,6 +90,30 @@ class MemoryStore:
         with self._connect() as db:
             cursor = db.execute("DELETE FROM memories WHERE id = ?", (memory_id,))
             return cursor.rowcount > 0
+
+    def add_conversation_message(self, role: str, content: str) -> None:
+        if role not in {"user", "assistant"}:
+            raise ValueError("conversation role must be 'user' or 'assistant'")
+        clean_content = content.strip()
+        if not clean_content:
+            return
+        created_at = datetime.now(timezone.utc).isoformat()
+        with self._connect() as db:
+            db.execute(
+                "INSERT INTO conversation_messages(role, content, created_at) VALUES(?, ?, ?)",
+                (role, clean_content, created_at),
+            )
+
+    def recent_conversation(self, limit: int = 12) -> list[dict[str, str]]:
+        with self._connect() as db:
+            rows = db.execute(
+                "SELECT role, content FROM conversation_messages ORDER BY id DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+        return [
+            {"role": row["role"], "content": row["content"]}
+            for row in reversed(rows)
+        ]
 
     @staticmethod
     def _row_to_record(row: sqlite3.Row) -> MemoryRecord:

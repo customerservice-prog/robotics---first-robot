@@ -3,53 +3,31 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="theme-color" content="#070b12" />
   <title>Ribitics Robot</title>
   <style>
-    :root { color-scheme: dark; --bg:#080b12; --panel:#111827; --line:#25314a; --accent:#5da8ff; --good:#52d273; --danger:#ff5a68; --text:#f5f7fb; --muted:#94a3b8; }
-    * { box-sizing:border-box; }
-    body { margin:0; font-family:Inter,system-ui,Arial,sans-serif; background:radial-gradient(circle at top,#14213b 0,#080b12 42%); color:var(--text); min-height:100vh; }
-    .shell { max-width:1180px; margin:auto; padding:24px; }
-    header { display:flex; justify-content:space-between; gap:20px; align-items:center; margin-bottom:20px; }
-    h1 { margin:0; font-size:clamp(28px,5vw,50px); letter-spacing:-.04em; }
-    .sub { color:var(--muted); margin-top:4px; }
-    .pill { border:1px solid var(--line); background:#0d1421; padding:10px 14px; border-radius:999px; font-size:14px; }
-    .grid { display:grid; grid-template-columns:1.1fr .9fr; gap:18px; }
-    .card { background:rgba(17,24,39,.92); border:1px solid var(--line); border-radius:22px; padding:20px; box-shadow:0 20px 60px #0006; }
-    .card h2 { margin:0 0 14px; font-size:19px; }
-    .status { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
-    .metric { background:#0c1320; border:1px solid #1e2a40; border-radius:16px; padding:13px; }
-    .metric span { display:block; color:var(--muted); font-size:12px; }
-    .metric strong { display:block; margin-top:6px; font-size:18px; }
-    .drive { display:grid; grid-template-columns:80px 80px 80px; grid-template-rows:70px 70px 70px; gap:10px; justify-content:center; margin:18px auto; }
-    button { border:1px solid #334155; background:#172033; color:white; border-radius:16px; font-weight:700; cursor:pointer; font-size:15px; }
-    button:hover { border-color:#5da8ff; }
-    .up { grid-column:2; } .left { grid-column:1;grid-row:2; } .stop { grid-column:2;grid-row:2;background:#5d1f2a;border-color:#8c3040; } .right { grid-column:3;grid-row:2; } .down { grid-column:2;grid-row:3; }
-    .chatlog { height:360px; overflow:auto; background:#0a101b; border:1px solid #1f2a40; border-radius:16px; padding:14px; }
-    .msg { max-width:88%; padding:10px 12px; border-radius:14px; margin:8px 0; line-height:1.35; white-space:pre-wrap; }
-    .me { background:#17345c; margin-left:auto; }
-    .bot { background:#1a2231; }
-    .composer { display:flex; gap:8px; margin-top:10px; }
-    input { flex:1; background:#090f19; border:1px solid #2d3a52; color:white; border-radius:14px; padding:13px 14px; font-size:15px; }
-    .send { padding:0 18px; background:#2468b9; }
-    .mic { width:48px; font-size:20px; }
-    .memory-list { max-height:230px; overflow:auto; }
-    .memory { border-bottom:1px solid #223047; padding:10px 0; color:#dbe4f2; }
-    .memory small { color:var(--muted); display:block; margin-top:4px; }
-    .hint { color:var(--muted); font-size:13px; line-height:1.5; }
-    .danger { color:#ff8b95; }
-    @media (max-width:850px){ .grid{grid-template-columns:1fr}.status{grid-template-columns:repeat(2,1fr)} header{align-items:flex-start;flex-direction:column}.shell{padding:14px} }
+    :root{color-scheme:dark;--bg:#070b12;--panel:#101826;--panel2:#0a121f;--line:#23314a;--accent:#65b5ff;--good:#4ed47a;--warn:#ffc857;--danger:#ff6677;--text:#f7f9fc;--muted:#93a3bb}
+    *{box-sizing:border-box}body{margin:0;min-height:100vh;color:var(--text);font-family:Inter,system-ui,sans-serif;background:radial-gradient(circle at 15% -5%,rgba(73,121,255,.22),transparent 34rem),radial-gradient(circle at 88% 8%,rgba(0,174,255,.12),transparent 28rem),var(--bg)}
+    button,input{font:inherit}.shell{width:min(1220px,100%);margin:auto;padding:22px}header{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;margin:4px 0 20px}.brand{display:flex;align-items:center;gap:14px}.logo{width:52px;height:52px;border-radius:16px;display:grid;place-items:center;font-weight:900;font-size:22px;background:linear-gradient(145deg,#1664b8,#6d7dff);box-shadow:0 12px 36px rgba(49,108,232,.28)}h1{margin:0;font-size:clamp(28px,5vw,48px);letter-spacing:-.045em;line-height:1}.sub{color:var(--muted);margin-top:7px;font-size:14px}.top-actions{display:flex;gap:10px;flex-wrap:wrap}.pill{border:1px solid var(--line);background:rgba(11,18,32,.82);padding:10px 13px;border-radius:999px;font-size:13px;white-space:nowrap}
+    .grid{display:grid;grid-template-columns:1.05fr .95fr;gap:16px}.card{background:linear-gradient(180deg,rgba(17,26,42,.94),rgba(12,19,31,.95));border:1px solid var(--line);border-radius:22px;padding:19px;box-shadow:0 20px 58px rgba(0,0,0,.25)}.full{grid-column:1/-1}.card-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px}.card h2{margin:0;font-size:18px}.eyebrow{color:var(--muted);text-transform:uppercase;letter-spacing:.12em;font-size:10px;font-weight:800;margin-bottom:6px}
+    .status-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}.metric{background:var(--panel2);border:1px solid #1a263a;border-radius:15px;padding:12px;min-width:0}.metric span{display:block;color:var(--muted);font-size:11px}.metric strong{display:block;margin-top:5px;font-size:17px;overflow:hidden;text-overflow:ellipsis}.drive{display:grid;grid-template-columns:74px 74px 74px;grid-template-rows:64px 64px 64px;gap:9px;justify-content:center;margin:17px auto 12px}
+    button{border:1px solid #31415e;background:#162237;color:white;border-radius:14px;font-weight:800;cursor:pointer;transition:.12s}button:hover{border-color:var(--accent);background:#1b2b46}button:active{transform:scale(.97)}button:disabled{opacity:.45;cursor:not-allowed}.up{grid-column:2}.left{grid-column:1;grid-row:2}.stop{grid-column:2;grid-row:2;background:#59212b;border-color:#873343}.right{grid-column:3;grid-row:2}.down{grid-column:2;grid-row:3}.hint{color:var(--muted);font-size:12.5px;line-height:1.55;margin:9px 0 0}.danger{color:#ff9aa5}
+    .chatlog{height:330px;overflow:auto;background:#09111d;border:1px solid #1a263a;border-radius:16px;padding:13px}.msg{max-width:88%;padding:10px 12px;border-radius:14px;margin:8px 0;line-height:1.4;white-space:pre-wrap;font-size:14px}.me{background:#153c67;margin-left:auto}.bot{background:#182337}.composer{display:flex;gap:8px;margin-top:10px}input{min-width:0;flex:1;background:#08101b;border:1px solid #2b3a55;color:white;border-radius:13px;padding:12px 13px;outline:none}input:focus{border-color:var(--accent)}.send,.primary{padding:0 16px;background:linear-gradient(135deg,#1b67b8,#5369e5);border-color:#4b78bf}.mic{width:46px;font-size:18px}
+    .voice-panel{display:grid;gap:11px}.voice-hero{display:flex;align-items:center;justify-content:space-between;gap:14px;background:linear-gradient(135deg,rgba(37,91,155,.24),rgba(82,82,180,.12));border:1px solid #2b4264;border-radius:17px;padding:14px}.orb{width:47px;height:47px;border-radius:50%;flex:0 0 auto;background:radial-gradient(circle at 35% 30%,#b8e3ff 0 8%,#4ba9ff 20%,#3754d2 58%,#17233d 70%);box-shadow:0 0 0 7px rgba(89,151,255,.08),0 0 36px rgba(80,152,255,.32)}.voice-copy{flex:1;min-width:0}.voice-copy strong{display:block;font-size:16px}.voice-copy span{color:var(--muted);font-size:12px}.small-btn{padding:9px 12px;font-size:12px}.voice-data{display:grid;grid-template-columns:1fr 1fr;gap:9px}.data-box{background:#0a121f;border:1px solid #1a263a;border-radius:14px;padding:11px;min-height:72px}.data-box span{color:var(--muted);font-size:11px;display:block;margin-bottom:5px}.data-box div{font-size:13px;line-height:1.35;overflow-wrap:anywhere}.error-box{display:none;border:1px solid #6f3040;background:#331722;color:#ffabb4;padding:10px;border-radius:12px;font-size:12px}
+    .memory-list{max-height:250px;overflow:auto}.memory{border-bottom:1px solid #20304a;padding:10px 2px;color:#dce6f5;font-size:13px}.memory small{color:var(--muted);display:block;margin-top:4px}.footer-note{text-align:center;color:#6f8099;font-size:11px;margin:16px 0 2px}
+    @media(max-width:900px){.grid{grid-template-columns:1fr}.full{grid-column:auto}.status-grid{grid-template-columns:repeat(2,1fr)}header{flex-direction:column}.shell{padding:14px}}@media(max-width:520px){.voice-data{grid-template-columns:1fr}.composer{display:grid;grid-template-columns:46px 1fr}.send{grid-column:1/-1;height:44px}}
   </style>
 </head>
 <body>
 <div class="shell">
   <header>
-    <div><h1>Ribitics Robot</h1><div class="sub">Local-first robot brain · memory · voice · hardware bridge</div></div>
-    <div id="connection" class="pill">Connecting…</div>
+    <div class="brand"><div class="logo">R</div><div><h1>Ribitics</h1><div class="sub">Local robot brain · persistent memory · standalone voice · hardware bridge</div></div></div>
+    <div class="top-actions"><div id="connection" class="pill">Connecting…</div><div id="voicePill" class="pill">Voice: checking…</div></div>
   </header>
   <div class="grid">
     <section class="card">
-      <h2>Robot control</h2>
-      <div class="status">
+      <div class="card-head"><div><div class="eyebrow">Hardware</div><h2>Robot control</h2></div><div id="estopPill" class="pill">E-stop clear</div></div>
+      <div class="status-grid">
         <div class="metric"><span>Mode</span><strong id="mode">—</strong></div>
         <div class="metric"><span>Battery</span><strong id="battery">—</strong></div>
         <div class="metric"><span>Left motor</span><strong id="leftMotor">0%</strong></div>
@@ -63,50 +41,57 @@
         <button class="down" data-linear="-1" data-angular="0">▼</button>
       </div>
       <p id="hardwareMessage" class="hint">Waiting for hardware status…</p>
-      <p class="hint danger">Manual movement should only be used while you can see the robot. A physical emergency-stop must cut motor power independently of this software.</p>
+      <p class="hint danger">Keep the robot in sight during manual movement. The physical emergency stop must cut motor power independently of this software.</p>
     </section>
-
     <section class="card">
-      <h2>Talk to Ribitics</h2>
-      <div id="chatlog" class="chatlog"><div class="msg bot">I'm online. Say “remember that …” to teach me something.</div></div>
-      <div class="composer">
-        <button id="mic" class="mic" title="Use browser microphone">🎙</button>
-        <input id="message" placeholder="Talk to Ribitics…" autocomplete="off" />
-        <button id="send" class="send">Send</button>
+      <div class="card-head"><div><div class="eyebrow">Conversation</div><h2>Talk to Ribitics</h2></div></div>
+      <div id="chatlog" class="chatlog"><div class="msg bot">I'm online. Say “remember that …” to teach me something permanently.</div></div>
+      <div class="composer"><button id="mic" class="mic">🎙</button><input id="message" placeholder="Ask Ribitics anything…" autocomplete="off" /><button id="send" class="send">Send</button></div>
+      <p class="hint">The browser microphone is a backup. Standalone voice uses the robot's own USB microphone and speaker.</p>
+    </section>
+    <section class="card">
+      <div class="card-head"><div><div class="eyebrow">Hands-free</div><h2>Standalone voice</h2></div></div>
+      <div class="voice-panel">
+        <div class="voice-hero"><div class="orb"></div><div class="voice-copy"><strong id="voiceState">Checking microphone…</strong><span id="wakeLabel">Wake phrase: “Hey Ribitics”</span></div><button id="voiceToggle" class="small-btn primary">Start</button></div>
+        <div class="voice-data"><div class="data-box"><span>Last heard</span><div id="lastHeard">Nothing yet</div></div><div class="data-box"><span>Last response</span><div id="lastReply">Nothing yet</div></div></div>
+        <div id="voiceError" class="error-box"></div>
+        <p class="hint">Ribitics listens locally for its wake phrase, transcribes speech offline with Vosk, sends it to the local brain, then speaks through the robot speaker.</p>
       </div>
-      <p class="hint">Voice input/output uses your browser today. Later the same backend can use the robot's USB microphone and speaker directly.</p>
     </section>
-
     <section class="card">
-      <h2>Persistent memory</h2>
+      <div class="card-head"><div><div class="eyebrow">Long-term</div><h2>Persistent memory</h2></div><div class="pill">SQLite</div></div>
       <div id="memories" class="memory-list"></div>
+      <p class="hint">Recent dialogue now persists too, so follow-up questions keep their context.</p>
     </section>
-
-    <section class="card">
-      <h2>Upgrade path</h2>
-      <p class="hint">Today: simulation or ESP32 + Cytron motor control. Next: wheel encoders, ultrasonic/bumper sensors, LiDAR, camera vision, local Whisper speech recognition, charging dock, then a Jetson if you need heavier AI.</p>
-      <p class="hint">The AI model, camera, motors, body and computer are intentionally replaceable. Memory and software integrations stay yours.</p>
+    <section class="card full">
+      <div class="card-head"><div><div class="eyebrow">System</div><h2>Local-first stack</h2></div></div>
+      <div class="status-grid"><div class="metric"><span>Wake phrase</span><strong>Offline</strong></div><div class="metric"><span>Speech recognition</span><strong>Vosk</strong></div><div class="metric"><span>AI brain</span><strong>Ollama</strong></div><div class="metric"><span>Memory</span><strong>SQLite</strong></div></div>
+      <p class="hint">After the models are installed, normal conversation does not require a paid AI API.</p>
     </section>
   </div>
+  <div class="footer-note">Ribitics Robot v0.2 · software stop is not a physical emergency stop</div>
 </div>
 <script>
-const qs = s => document.querySelector(s);
-const token = localStorage.getItem('ribiticsToken') || '';
-function headers(){ return token ? {'Content-Type':'application/json','X-Ribitics-Token':token} : {'Content-Type':'application/json'}; }
-function addMessage(text, who='bot') { const d=document.createElement('div'); d.className='msg '+who; d.textContent=text; qs('#chatlog').appendChild(d); qs('#chatlog').scrollTop=qs('#chatlog').scrollHeight; }
-function speak(text){ if('speechSynthesis' in window){ speechSynthesis.cancel(); speechSynthesis.speak(new SpeechSynthesisUtterance(text)); } }
-async function status(){ try{ const r=await fetch('/api/status'); const s=await r.json(); qs('#connection').textContent=s.connected?'● Connected':'● Disconnected'; qs('#connection').style.color=s.connected?'#52d273':'#ff5a68'; qs('#mode').textContent=s.mode; qs('#battery').textContent=s.battery_voltage?`${s.battery_voltage.toFixed(1)}V`:'—'; qs('#leftMotor').textContent=`${s.left_motor}%`; qs('#rightMotor').textContent=`${s.right_motor}%`; qs('#hardwareMessage').textContent=s.last_message+(s.estop?' · PHYSICAL E-STOP ACTIVE':''); }catch(e){ qs('#connection').textContent='Offline'; } }
-async function drive(linear,angular){ await fetch('/api/drive',{method:'POST',headers:headers(),body:JSON.stringify({linear,angular})}); status(); }
-async function stop(){ await fetch('/api/stop',{method:'POST',headers:headers()}); status(); }
-document.querySelectorAll('[data-linear]').forEach(b=>{ const start=e=>{e.preventDefault(); drive(Number(b.dataset.linear),Number(b.dataset.angular));}; b.addEventListener('pointerdown',start); b.addEventListener('pointerup',stop); b.addEventListener('pointerleave',stop); b.addEventListener('pointercancel',stop); });
+const qs=function(s){return document.querySelector(s)};
+const token=localStorage.getItem('ribiticsToken')||'';
+function authHeaders(){return token?{'Content-Type':'application/json','X-Ribitics-Token':token}:{'Content-Type':'application/json'}}
+function addMessage(text,who){var d=document.createElement('div');d.className='msg '+(who||'bot');d.textContent=text;qs('#chatlog').appendChild(d);qs('#chatlog').scrollTop=qs('#chatlog').scrollHeight}
+function speakBrowser(text){if('speechSynthesis' in window){speechSynthesis.cancel();speechSynthesis.speak(new SpeechSynthesisUtterance(text))}}
+async function robotStatus(){try{var r=await fetch('/api/status');var s=await r.json();qs('#connection').textContent=s.connected?'● Robot connected':'● Robot disconnected';qs('#connection').style.color=s.connected?'#4ed47a':'#ff6677';qs('#mode').textContent=s.mode;qs('#battery').textContent=s.battery_voltage?s.battery_voltage.toFixed(1)+'V':'—';qs('#leftMotor').textContent=s.left_motor+'%';qs('#rightMotor').textContent=s.right_motor+'%';qs('#hardwareMessage').textContent=s.last_message||'No hardware message';qs('#estopPill').textContent=s.estop?'E-STOP ACTIVE':'E-stop clear';qs('#estopPill').style.color=s.estop?'#ff6677':'#4ed47a'}catch(e){qs('#connection').textContent='● Backend offline';qs('#connection').style.color='#ff6677'}}
+async function drive(linear,angular){await fetch('/api/drive',{method:'POST',headers:authHeaders(),body:JSON.stringify({linear:linear,angular:angular})});robotStatus()}
+async function stop(){await fetch('/api/stop',{method:'POST',headers:authHeaders()});robotStatus()}
+document.querySelectorAll('[data-linear]').forEach(function(b){var start=function(e){e.preventDefault();drive(Number(b.dataset.linear),Number(b.dataset.angular))};b.addEventListener('pointerdown',start);b.addEventListener('pointerup',stop);b.addEventListener('pointerleave',stop);b.addEventListener('pointercancel',stop)});
 qs('#stop').onclick=stop;
-async function send(){ const input=qs('#message'); const message=input.value.trim(); if(!message)return; input.value=''; addMessage(message,'me'); try{ const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message})}); const data=await r.json(); addMessage(data.reply,'bot'); speak(data.reply); loadMemories(); }catch(e){ addMessage('I could not reach the robot brain.','bot'); } }
-qs('#send').onclick=send; qs('#message').addEventListener('keydown',e=>{if(e.key==='Enter')send();});
-const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-if(SpeechRecognition){ const rec=new SpeechRecognition(); rec.lang='en-US'; rec.interimResults=false; rec.onresult=e=>{qs('#message').value=e.results[0][0].transcript; send();}; qs('#mic').onclick=()=>rec.start(); } else { qs('#mic').onclick=()=>addMessage('This browser does not expose speech recognition. You can still type.','bot'); }
-async function loadMemories(){ try{ const r=await fetch('/api/memories?limit=20'); const ms=await r.json(); qs('#memories').innerHTML=ms.length?ms.map(m=>`<div class="memory">${escapeHtml(m.content)}<small>importance ${m.importance} · ${m.tags.join(', ')||'untagged'}</small></div>`).join(''):'<div class="hint">No memories saved yet.</div>'; }catch(e){} }
-function escapeHtml(s){ return s.replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
-setInterval(status,1000); status(); loadMemories();
+async function send(){var input=qs('#message');var message=input.value.trim();if(!message)return;input.value='';addMessage(message,'me');try{var r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:message})});if(!r.ok)throw new Error('chat failed');var data=await r.json();addMessage(data.reply,'bot');speakBrowser(data.reply);loadMemories()}catch(e){addMessage('I could not reach the robot brain.','bot')}}
+qs('#send').onclick=send;qs('#message').addEventListener('keydown',function(e){if(e.key==='Enter')send()});
+var SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
+if(SpeechRecognition){var rec=new SpeechRecognition();rec.lang='en-US';rec.interimResults=false;rec.onresult=function(e){qs('#message').value=e.results[0][0].transcript;send()};rec.onerror=function(){addMessage('Browser microphone recognition failed. The robot-side offline microphone can still be used.','bot')};qs('#mic').onclick=function(){rec.start()}}else{qs('#mic').onclick=function(){addMessage('This browser does not expose speech recognition. Use robot-side voice or type here.','bot')}}
+function prettyVoiceState(v){var names={stopped:'Stopped',starting:'Starting microphone…',waiting_for_wake:'Listening for wake phrase',listening_for_command:'Listening for your command',thinking:'Thinking…',speaking:'Speaking…',error:'Voice needs attention'};return names[v.state]||v.state||'Unknown'}
+async function voiceStatus(){try{var r=await fetch('/api/voice/status');var v=await r.json();qs('#voiceState').textContent=prettyVoiceState(v);qs('#wakeLabel').textContent='Wake phrase: “'+v.wake_phrase+'” · '+v.engine;qs('#lastHeard').textContent=v.last_heard||'Nothing yet';qs('#lastReply').textContent=v.last_reply||'Nothing yet';qs('#voiceToggle').textContent=v.running?'Stop':'Start';qs('#voiceToggle').dataset.running=v.running?'1':'0';qs('#voicePill').textContent=v.ready?'● Voice ready':v.state==='error'?'● Voice error':v.running?'● Voice starting':'● Voice stopped';qs('#voicePill').style.color=v.ready?'#4ed47a':v.state==='error'?'#ff6677':'#ffc857';if(v.last_error){qs('#voiceError').style.display='block';qs('#voiceError').textContent=v.last_error}else{qs('#voiceError').style.display='none';qs('#voiceError').textContent=''}}catch(e){qs('#voicePill').textContent='● Voice unavailable';qs('#voicePill').style.color='#ff6677'}}
+qs('#voiceToggle').onclick=async function(){var running=qs('#voiceToggle').dataset.running==='1';qs('#voiceToggle').disabled=true;try{await fetch(running?'/api/voice/stop':'/api/voice/start',{method:'POST',headers:authHeaders()})}finally{qs('#voiceToggle').disabled=false;voiceStatus()}};
+function escapeHtml(s){return String(s).replace(/[&<>'"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]})}
+async function loadMemories(){try{var r=await fetch('/api/memories?limit=20');var ms=await r.json();if(!ms.length){qs('#memories').innerHTML='<div class="hint">No memories saved yet.</div>';return}qs('#memories').innerHTML=ms.map(function(m){return '<div class="memory">'+escapeHtml(m.content)+'<small>importance '+m.importance+' · '+(m.tags.map(escapeHtml).join(', ')||'untagged')+'</small></div>'}).join('')}catch(e){}}
+setInterval(robotStatus,1000);setInterval(voiceStatus,1200);robotStatus();voiceStatus();loadMemories();
 </script>
 </body>
 </html>
