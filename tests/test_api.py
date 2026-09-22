@@ -10,6 +10,7 @@ def test_health_and_status():
         assert health['voice']['running'] is False
         assert health['camera']['running'] is False
         assert health['lidar']['running'] is False
+        assert 'localization' in health
         assert 'spatial' in health
         assert 'odometry' in health
         assert 'map' in health
@@ -167,3 +168,19 @@ def test_recovery_replan_and_dock_foundation():
         nav = client.get('/api/navigation/status').json()
         assert nav['state'] == 'replanned'
         assert nav['running'] is False
+
+
+
+def test_localization_and_map_mode_endpoints():
+    with TestClient(app) as client:
+        loc = client.get('/api/localization/status')
+        assert loc.status_code == 200
+        assert 'confidence' in loc.json()
+
+        frozen = client.post('/api/map/learning', json={'enabled': False})
+        assert frozen.status_code == 200
+        assert frozen.json()['learning_enabled'] is False
+
+        resumed = client.post('/api/map/learning', json={'enabled': True})
+        assert resumed.status_code == 200
+        assert resumed.json()['learning_enabled'] is True
