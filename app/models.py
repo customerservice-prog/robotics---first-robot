@@ -218,3 +218,9 @@ class SimulationSensors(BaseModel):
     front_bumper_right: bool = False
     lidar_connected: bool = False
     lidar_min_distance_cm: float | None = Field(default=None, ge=0, le=10000)
+
+
+class SimulationMapObstacle(BaseModel):
+    x_cm: float
+    y_cm: float
+    radius_cm: float = Field(default=20.0, ge=5.0, le=200.0)
