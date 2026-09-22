@@ -15,6 +15,9 @@ from app.models import (
     DriveCommand,
     LidarScan,
     LidarStatus,
+    LocalizationStatus,
+    MapLearningRequest,
+    MapPersistenceResult,
     MapSnapshot,
     MapStatus,
     MemoryCreate,
@@ -24,14 +27,17 @@ from app.models import (
     NavigationStatus,
     OdometryStatus,
     Pose2D,
+    RelocalizeRequest,
     RobotStatus,
     SimulationMapObstacle,
+    ScanMatchResult,
     SimulationSensors,
     SpatialStatus,
     VoiceStatus,
 )
 from app.navigation import (
     AStarPlanner,
+    CorrelativeLocalizer,
     DifferentialOdometry,
     DockingFoundation,
     LocalOccupancyMap,
@@ -102,11 +108,28 @@ occupancy_map = LocalOccupancyMap(
     size_cm=settings.map_size_cm,
     robot_radius_cm=settings.map_robot_radius_cm,
     poll_hz=settings.mapping_poll_hz,
+    persistence_path=settings.map_persistence_path,
 )
 planner = AStarPlanner(
     occupancy_map,
     robot_radius_cm=settings.map_robot_radius_cm,
     allow_unknown=settings.navigation_allow_unknown,
+)
+localizer = CorrelativeLocalizer(
+    occupancy_map,
+    lidar,
+    odometry,
+    poll_hz=settings.localization_poll_hz,
+    search_xy_cm=settings.localization_search_xy_cm,
+    search_heading_deg=settings.localization_search_heading_deg,
+    xy_step_cm=settings.localization_xy_step_cm,
+    heading_step_deg=settings.localization_heading_step_deg,
+    min_points=settings.localization_min_points,
+    min_confidence=settings.localization_min_confidence,
+    max_correction_cm=settings.localization_max_correction_cm,
+    max_correction_deg=settings.localization_max_correction_deg,
+    confidence_decay_distance_cm=settings.localization_confidence_decay_distance_cm,
+    confidence_decay_seconds=settings.localization_confidence_decay_seconds,
 )
 robot = RobotController(hardware, settings.max_motor_percent, awareness=awareness)
 navigator = SupervisedNavigator(
@@ -117,6 +140,8 @@ navigator = SupervisedNavigator(
     awareness=awareness,
     lidar=lidar,
     hardware_mode=hardware.status().mode,
+    localization=localizer,
+    min_localization_confidence=settings.localization_nav_min_confidence,
     hardware_execution_enabled=settings.enable_supervised_navigation,
     allow_unknown=settings.navigation_allow_unknown,
     max_goal_distance_cm=settings.navigation_max_goal_distance_cm,
@@ -138,6 +163,7 @@ def live_robot_context() -> str:
     odom = odometry.status()
     map_state = occupancy_map.status()
     nav = navigator.status()
+    localization = localizer.status()
     return (
         f"{spatial} "
         f"Local odometry pose: x={odom.pose.x_cm:.1f} cm, y={odom.pose.y_cm:.1f} cm, "
@@ -146,6 +172,8 @@ def live_robot_context() -> str:
         f"calibrated={'yes' if odom.calibrated else 'no'}. "
         f"Local occupancy map: ready={'yes' if map_state.ready else 'no'}, "
         f"{map_state.occupied_cells} occupied cells, {map_state.free_cells} free cells. "
+        f"Localization: state={localization.state}, confidence={localization.confidence:.2f}, "
+        f"ready={'yes' if localization.ready else 'no'}. "
         f"Navigation state: {nav.state}; {nav.reason or 'no active route'}."
     )
 
@@ -168,12 +196,17 @@ voice = OfflineVoiceAssistant(
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    if settings.map_auto_load:
+        occupancy_map.load()
+        localizer.invalidate("Persistent map loaded; live relocalization is required")
     if settings.enable_odometry:
         odometry.start()
     if settings.enable_camera:
         camera.start()
     if settings.enable_lidar:
         lidar.start()
+    if settings.enable_localization:
+        localizer.start()
     if settings.enable_mapping:
         occupancy_map.start()
     if settings.enable_voice_loop:
@@ -182,6 +215,9 @@ async def lifespan(_: FastAPI):
     if navigator.status().running:
         navigator.cancel("Application shutting down")
     occupancy_map.stop()
+    if settings.map_auto_save and occupancy_map.status().dirty:
+        occupancy_map.save()
+    localizer.stop()
     odometry.stop()
     camera.stop()
     lidar.stop()
@@ -189,7 +225,7 @@ async def lifespan(_: FastAPI):
     hardware.close()
 
 
-app = FastAPI(title="Ribitics Robot", version="0.4.0", lifespan=lifespan)
+app = FastAPI(title="Ribitics Robot", version="0.5.0", lifespan=lifespan)
 static_dir = Path(__file__).resolve().parent.parent / "static"
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
@@ -220,6 +256,7 @@ def health() -> dict:
         "lidar": lidar.status().model_dump(),
         "spatial": awareness.status().model_dump(),
         "odometry": odometry.status().model_dump(),
+        "localization": localizer.status().model_dump(),
         "map": occupancy_map.status().model_dump(),
         "navigation": navigator.status().model_dump(),
         "dock": dock.status().model_dump(),
@@ -296,12 +333,55 @@ def odometry_reset(pose: Pose2D) -> OdometryStatus:
     if navigator.status().running:
         navigator.cancel("Odometry reset by operator")
     robot.stop()
-    return odometry.reset(pose)
+    result = odometry.reset(pose)
+    localizer.invalidate("Odometry pose was reset by operator")
+    return result
 
 
 @app.get("/api/map/status", response_model=MapStatus)
 def map_status() -> MapStatus:
     return occupancy_map.status()
+
+
+@app.post(
+    "/api/map/save",
+    response_model=MapPersistenceResult,
+    dependencies=[Depends(require_control_token)],
+)
+def map_save() -> MapPersistenceResult:
+    robot.stop()
+    return occupancy_map.save()
+
+
+@app.post(
+    "/api/map/load",
+    response_model=MapPersistenceResult,
+    dependencies=[Depends(require_control_token)],
+)
+def map_load() -> MapPersistenceResult:
+    if navigator.status().running:
+        navigator.cancel("Persistent map loaded by operator")
+    robot.stop()
+    result = occupancy_map.load()
+    if result.success:
+        localizer.invalidate("Persistent map loaded; relocalization is required")
+    return result
+
+
+@app.post(
+    "/api/map/learning",
+    response_model=MapStatus,
+    dependencies=[Depends(require_control_token)],
+)
+def map_learning(request: MapLearningRequest) -> MapStatus:
+    if navigator.status().running:
+        navigator.cancel("Map learning mode changed")
+    robot.stop()
+    status = occupancy_map.set_learning(request.enabled)
+    localizer.invalidate(
+        "Map learning resumed" if request.enabled else "Reference map frozen; localization required"
+    )
+    return status
 
 
 @app.get(
@@ -322,7 +402,38 @@ def map_clear() -> MapStatus:
     if navigator.status().running:
         navigator.cancel("Map cleared by operator")
     robot.stop()
-    return occupancy_map.clear()
+    result = occupancy_map.clear()
+    localizer.invalidate("Reference map was cleared")
+    return result
+
+
+@app.get("/api/localization/status", response_model=LocalizationStatus)
+def localization_status() -> LocalizationStatus:
+    return localizer.status()
+
+
+@app.post(
+    "/api/localization/match",
+    response_model=ScanMatchResult,
+    dependencies=[Depends(require_control_token)],
+)
+def localization_match(request: RelocalizeRequest) -> ScanMatchResult:
+    if navigator.status().running:
+        navigator.cancel("Localization match requested")
+    robot.stop()
+    return localizer.match_now(request)
+
+
+@app.post(
+    "/api/localization/relocalize",
+    response_model=ScanMatchResult,
+    dependencies=[Depends(require_control_token)],
+)
+def localization_relocalize(request: RelocalizeRequest) -> ScanMatchResult:
+    if navigator.status().running:
+        navigator.cancel("Explicit relocalization requested")
+    robot.stop()
+    return localizer.relocalize(request)
 
 
 @app.get("/api/navigation/status", response_model=NavigationStatus)
