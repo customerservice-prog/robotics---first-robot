@@ -203,6 +203,8 @@ class MapStatus(BaseModel):
     ready: bool
     resolution_cm: float
     size_cm: float
+    map_id: str = ""
+    revision: int = 0
     updates: int = 0
     free_cells: int = 0
     occupied_cells: int = 0
@@ -219,6 +221,8 @@ class MapStatus(BaseModel):
 class MapSnapshot(BaseModel):
     resolution_cm: float
     size_cm: float
+    map_id: str = ""
+    revision: int = 0
     occupied: list[MapCell] = Field(default_factory=list)
     robot_pose: Pose2D = Field(default_factory=Pose2D)
     captured_at: datetime | None = None
@@ -233,7 +237,54 @@ class MapPersistenceResult(BaseModel):
     action: str
     path: str
     cell_count: int = 0
+    map_id: str = ""
+    revision: int = 0
     reason: str = ""
+
+
+class PlaceAnchor(BaseModel):
+    anchor_id: str
+    name: str = ""
+    map_id: str
+    map_revision: int = 0
+    pose: Pose2D
+    descriptor: list[float] = Field(default_factory=list)
+    valid_sectors: int = 0
+    created_at: datetime
+
+
+class PlaceRecognitionResult(BaseModel):
+    recognized: bool
+    anchor_id: str = ""
+    anchor_name: str = ""
+    similarity: float = 0.0
+    second_similarity: float = 0.0
+    margin: float = 0.0
+    estimated_pose: Pose2D = Field(default_factory=Pose2D)
+    heading_offset_deg: float = 0.0
+    verified: bool = False
+    scan_match: ScanMatchResult | None = None
+    reason: str = ""
+
+
+class PlaceRecognitionStatus(BaseModel):
+    ready: bool
+    anchor_count: int = 0
+    map_id: str = ""
+    persistence_path: str = ""
+    last_recognition_at: datetime | None = None
+    last_similarity: float = 0.0
+    last_anchor_id: str = ""
+    last_error: str = ""
+
+
+class PlaceAnchorCreate(BaseModel):
+    name: str = Field(default="", max_length=100)
+
+
+class MapIdentity(BaseModel):
+    map_id: str
+    revision: int
 
 
 class NavigationGoal(BaseModel):
@@ -275,6 +326,10 @@ class DockStatus(BaseModel):
     dock_pose: Pose2D | None = None
     approach_goal: NavigationGoal | None = None
     distance_to_dock_cm: float | None = None
+    map_id: str = ""
+    map_revision: int = 0
+    persistent: bool = False
+    valid_for_current_map: bool = False
     reason: str = ""
 
 
